@@ -1,17 +1,26 @@
 .eunit
+deps
 *.o
 *.beam
 *.plt
 erl_crash.dump
-.concrete/DEV_MODE
-
-# rebar 2.x
-.rebar
+ebin
 rel/example_project
-ebin/*.beam
-deps
-
-# rebar 3
-.rebar3
+.concrete/DEV_MODE
+.rebar
+.erlang.mk/
+emqx_auth_mnesia.d
+data/
 _build/
-_checkouts/
+.DS_Store
+cover/
+ct.coverdata
+eunit.coverdata
+logs/
+test/ct.cover.spec
+rebar.lock
+rebar3.crashdump
+erlang.mk
+.*.swp
+.rebar3/
+etc/emqx_auth_mnesia.conf.rendered

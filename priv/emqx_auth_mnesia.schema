@@ -1,0 +1,7 @@
+%%-*- mode: erlang -*-
+%% emqx_auth_mnesia config mapping
+
+{mapping, "auth.mnesia.password_hash", "emqx_auth_mnesia.password_hash", [
+  {default, sha256},
+  {datatype, {enum, [plain, md5, sha, sha256]}}
+]}.
