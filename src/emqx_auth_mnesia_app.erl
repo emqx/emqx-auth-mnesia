@@ -34,6 +34,9 @@
 
 start(_StartType, _StartArgs) ->
     {ok, Sup} = emqx_auth_mnesia_sup:start_link(),
+    DefaultUsers = application:get_env(?APP, userlist, []),
+    ok = emqx_auth_mnesia:init(DefaultUsers),
+    ok = emqx_auth_mnesia:register_metrics(),
     load_auth_hook(),
     load_acl_hook(),
     {ok, Sup}.

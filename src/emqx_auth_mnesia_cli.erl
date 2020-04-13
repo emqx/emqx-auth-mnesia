@@ -15,3 +15,16 @@
 %%--------------------------------------------------------------------
 
 -module(emqx_auth_mnesia_cli).
+
+-include("emqx_auth_mnesia.hrl").
+
+%% Auth callbacks
+-export([ query/1
+        ]).
+
+query(ClientInfo) ->
+    Key = case application:get_env(emqx_auth_mnesia, as, username) of
+        username -> #{username := Username} = ClientInfo, Username; 
+        clientid -> #{clientid := ClientID} = ClientInfo, ClientID
+    end,
+    mnesia:dirty_read(emqx_user, Key).
