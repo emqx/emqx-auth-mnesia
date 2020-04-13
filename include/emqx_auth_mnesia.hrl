@@ -1,5 +1,11 @@
 -define(APP, emqx_auth_mnesia).
 
+-record(emqx_user, {
+        username,
+        password,
+        is_superuser
+    }).
+
 -record(auth_metrics, {
         success = 'client.auth.success',
         failure = 'client.auth.failure',

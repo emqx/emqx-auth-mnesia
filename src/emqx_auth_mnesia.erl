@@ -34,20 +34,19 @@ register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?AUTH_METRICS).
 
 check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType}) ->
-    
     CheckPass = case emqx_auth_mnesia_cli:query(ClientInfo) of
-                    {ok, undefined} ->
-                        {error, not_found};
-                    {ok, User} ->
-                        {check_pass({User, Password}, HashType), User};
-                    {error, Reason} ->
-                        ?LOG(error, "[Mnesia] query '~p' failed: ~p", [ClientInfo, Reason]),
-                        {error, not_found}
-                end,
-    case CheckPass of
+        {ok, undefined} ->
+            {error, not_found};
         {ok, User} ->
+            {check_pass({User#emqx_user.password, Password}, HashType), User};
+        {error, Reason} ->
+            ?LOG(error, "[Mnesia] query '~p' failed: ~p", [ClientInfo, Reason]),
+            {error, not_found}
+    end,
+    case CheckPass of
+        {ok, User1} ->
             emqx_metrics:inc(?AUTH_METRICS(success)),
-            {stop, AuthResult#{is_superuser => is_superuser(User),
+            {stop, AuthResult#{is_superuser => is_superuser(User1),
                                 anonymous => false,
                                 auth_result => success}};
         {error, not_found} ->
@@ -61,10 +60,10 @@ check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType}
 %%--------------------------------------------------------------------
 %% Is Superuser?
 %%--------------------------------------------------------------------
--spec(is_superuser(maybe({string(), list()}), emqx_types:client()) -> boolean()).
-is_superuser(undefined, _ClientInfo) -> false;
-is_superuser(_, _ClientInfo) ->
-    true.
+is_superuser(#emqx_user{is_superuser = true}) ->
+    true;
+is_superuser(_) ->
+    false.
 
 check_pass(Password, HashType) ->
     case emqx_passwd:check_pass(Password, HashType) of

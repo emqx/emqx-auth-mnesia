@@ -31,7 +31,7 @@
 register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?ACL_METRICS).
 
-check_acl(ClientInfo, PubSub, Topic, NoMatchAction, State) ->
+check_acl(ClientInfo, PubSub, Topic, NoMatchAction, _Params) ->
     case do_check_acl(ClientInfo, PubSub, Topic, NoMatchAction) of
         ok -> emqx_metrics:inc(?ACL_METRICS(ignore)), ok;
         {stop, allow} -> emqx_metrics:inc(?ACL_METRICS(allow)), {stop, allow};
