@@ -65,15 +65,15 @@ t_check_as_username(_Config) ->
     clean_all_users(),
     application:set_env(emqx_auth_mnesia, as, username),
 
-    ok = emqx_auth_mnesia:add_user(<<"test_username">>, <<"password">>, true),
-    {error, existed} = emqx_auth_mnesia:add_user(<<"test_username">>, <<"password">>, true),
+    ok = emqx_auth_mnesia_cli:add_user(<<"test_username">>, <<"password">>, true),
+    {error, existed} = emqx_auth_mnesia_cli:add_user(<<"test_username">>, <<"password">>, true),
 
-    ok = emqx_auth_mnesia:update_user(<<"test_username">>, <<"new_password">>, false),
-    {error,noexisted} = emqx_auth_mnesia:update_user(<<"no_existed_user">>, <<"password">>, true),
+    ok = emqx_auth_mnesia_cli:update_user(<<"test_username">>, <<"new_password">>, false),
+    {error,noexisted} = emqx_auth_mnesia_cli:update_user(<<"no_existed_user">>, <<"password">>, true),
 
-    [<<"test_username">>] = emqx_auth_mnesia:all_users(),
+    [<<"test_username">>] = emqx_auth_mnesia_cli:all_users(),
     [{emqx_user, <<"test_username">>, _HashedPass, false}] =
-        emqx_auth_mnesia:lookup_user(<<"test_username">>),
+    emqx_auth_mnesia_cli:lookup_user(<<"test_username">>),
 
     User1 = #{username => <<"test_username">>,
               password => <<"new_password">>,
@@ -85,7 +85,7 @@ t_check_as_username(_Config) ->
 
     {error,password_error} = emqx_access_control:authenticate(User1#{password => <<"error_password">>}),
 
-    ok = emqx_auth_mnesia:remove_user(<<"test_username">>),
+    ok = emqx_auth_mnesia_cli:remove_user(<<"test_username">>),
     {ok, #{auth_result := success,
            anonymous := true }} = emqx_access_control:authenticate(User1).
 
@@ -93,15 +93,15 @@ t_check_as_clientid(_Config) ->
     clean_all_users(),
     application:set_env(emqx_auth_mnesia, as, clientid),
 
-    ok = emqx_auth_mnesia:add_user(<<"test_clientid">>, <<"password">>, false),
-    {error, existed} = emqx_auth_mnesia:add_user(<<"test_clientid">>, <<"password">>, false),
+    ok = emqx_auth_mnesia_cli:add_user(<<"test_clientid">>, <<"password">>, false),
+    {error, existed} = emqx_auth_mnesia_cli:add_user(<<"test_clientid">>, <<"password">>, false),
 
-    ok = emqx_auth_mnesia:update_user(<<"test_clientid">>, <<"new_password">>, true),
-    {error,noexisted} = emqx_auth_mnesia:update_user(<<"no_existed_user">>, <<"password">>, true),
+    ok = emqx_auth_mnesia_cli:update_user(<<"test_clientid">>, <<"new_password">>, true),
+    {error,noexisted} = emqx_auth_mnesia_cli:update_user(<<"no_existed_user">>, <<"password">>, true),
 
-    [<<"test_clientid">>] = emqx_auth_mnesia:all_users(),
+    [<<"test_clientid">>] = emqx_auth_mnesia_cli:all_users(),
     [{emqx_user, <<"test_clientid">>, _HashedPass, true}] =
-        emqx_auth_mnesia:lookup_user(<<"test_clientid">>),
+    emqx_auth_mnesia_cli:lookup_user(<<"test_clientid">>),
 
     User1 = #{clientid => <<"test_clientid">>,
               password => <<"new_password">>,
@@ -113,7 +113,7 @@ t_check_as_clientid(_Config) ->
 
     {error,password_error} = emqx_access_control:authenticate(User1#{password => <<"error_password">>}),
 
-    ok = emqx_auth_mnesia:remove_user(<<"test_clientid">>),
+    ok = emqx_auth_mnesia_cli:remove_user(<<"test_clientid">>),
     {ok, #{auth_result := success,
            anonymous := true }} = emqx_access_control:authenticate(User1).
 
@@ -192,7 +192,7 @@ request_http_rest_delete(Login) ->
 uri() -> uri([]).
 uri(Parts) when is_list(Parts) ->
     NParts = [b2l(E) || E <- Parts],
-    ?HOST ++ filename:join([?BASE_PATH, ?API_VERSION, "auth_mnesia"| NParts]).
+    ?HOST ++ filename:join([?BASE_PATH, ?API_VERSION, "emqx_user"| NParts]).
 
 %% @private
 b2l(B) when is_binary(B) ->

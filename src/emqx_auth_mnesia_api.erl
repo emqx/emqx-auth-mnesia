@@ -20,37 +20,37 @@
 
 -import(minirest,  [return/0, return/1]).
 
--rest_api(#{name   => list_mnesia,
+-rest_api(#{name   => list_emqx_user,
             method => 'GET',
-            path   => "/auth_mnesia",
+            path   => "/emqx_user",
             func   => list,
             descr  => "List available mnesia in the cluster"
            }).
 
--rest_api(#{name   => lookup_mnesia,
+-rest_api(#{name   => lookup_emqx_user,
             method => 'GET',
-            path   => "/auth_mnesia/:bin:login",
+            path   => "/emqx_user/:bin:login",
             func   => lookup,
             descr  => "Lookup mnesia in the cluster"
            }).
 
--rest_api(#{name   => add_mnesia,
+-rest_api(#{name   => add_emqx_user,
             method => 'POST',
-            path   => "/auth_mnesia",
+            path   => "/emqx_user",
             func   => add,
             descr  => "Add mnesia in the cluster"
            }).
 
--rest_api(#{name   => update_mnesia,
+-rest_api(#{name   => update_emqx_user,
             method => 'PUT',
-            path   => "/auth_mnesia/:bin:login",
+            path   => "/emqx_user/:bin:login",
             func   => update,
             descr  => "Update mnesia in the cluster"
            }).
 
--rest_api(#{name   => delete_mnesia,
+-rest_api(#{name   => delete_emqx_user,
             method => 'DELETE',
-            path   => "/auth_mnesia/:bin:login",
+            path   => "/emqx_user/:bin:login",
             func   => delete,
             descr  => "Delete mnesia in the cluster"
            }).
@@ -63,10 +63,10 @@
         ]).
 
 list(_Bindings, _Params) ->
-    return({ok, emqx_auth_mnesia:all_users()}).
+    return({ok, emqx_auth_mnesia_cli:all_users()}).
 
 lookup(#{login := Longin}, _Params) ->
-    return({ok, format(emqx_auth_mnesia:lookup_user(Longin))}).
+    return({ok, format(emqx_auth_mnesia_cli:lookup_user(Longin))}).
 
 add(_Bindings, Params = [{_,_} | _]) ->
     return(add_user([Params], []));
@@ -79,7 +79,7 @@ add_user([ Params | ParamsN ], ReList ) ->
     IsSuperuser = get_value(<<"is_superuser">>, Params),
     Re = case validate([login, password, is_superuser], [Longin, Password, IsSuperuser]) of
         ok -> 
-           emqx_auth_mnesia:add_user(Longin, Password, IsSuperuser);
+            emqx_auth_mnesia_cli:add_user(Longin, Password, IsSuperuser);
         Err -> Err
     end,
     add_user(ParamsN, [{Longin, format_msg(Re)} | ReList]);   
@@ -92,7 +92,7 @@ update(#{login := Longin}, Params) ->
     IsSuperuser = get_value(<<"is_superuser">>, Params),
     case validate([password, is_superuser], [Password, IsSuperuser]) of
         ok ->
-            case emqx_auth_mnesia:update_user(Longin, Password, IsSuperuser) of
+            case emqx_auth_mnesia_cli:update_user(Longin, Password, IsSuperuser) of
                 ok  -> return();
                 Err -> return(Err)
             end;
@@ -100,7 +100,7 @@ update(#{login := Longin}, Params) ->
     end.
 
 delete(#{login := Longin}, _) ->
-    ok = emqx_auth_mnesia:remove_user(Longin),
+    ok = emqx_auth_mnesia_cli:remove_user(Longin),
     return().
 
 %%------------------------------------------------------------------------------
