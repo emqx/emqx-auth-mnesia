@@ -49,8 +49,8 @@ init(DefaultUsers) ->
     ok = ekka_mnesia:copy_table(emqx_user, disc_copies).
 
 %% @private
-add_default_user({Username, Password, IsSuperuser}) ->
-    add_user(iolist_to_binary(Username), iolist_to_binary(Password), IsSuperuser).
+add_default_user({Login, Password, IsSuperuser}) ->
+    add_user(iolist_to_binary(Login), iolist_to_binary(Password), IsSuperuser).
 
 -spec(register_metrics() -> ok).
 register_metrics() ->
@@ -83,42 +83,42 @@ description() -> "Authentication with Mnesia".
 
 %% @doc Add User
 -spec(add_user(binary(), binary(), atom()) -> ok | {error, any()}).
-add_user(Username, Password, IsSuperuser) ->
-    User = #emqx_user{username = Username, password = encrypted_data(Password), is_superuser = IsSuperuser},
+add_user(Login, Password, IsSuperuser) ->
+    User = #emqx_user{login = Login, password = encrypted_data(Password), is_superuser = IsSuperuser},
     ret(mnesia:transaction(fun insert_user/1, [User])).
 
-insert_user(User = #emqx_user{username = Username}) ->
-    case mnesia:read(emqx_user, Username) of
+insert_user(User = #emqx_user{login = Login}) ->
+    case mnesia:read(emqx_user, Login) of
         []    -> mnesia:write(User);
         [_|_] -> mnesia:abort(existed)
     end.
 
 %% @doc Update User
 -spec(update_user(binary(), binary(), atom()) -> ok | {error, any()}).
-update_user(Username, NewPassword, IsSuperuser) ->
-    User = #emqx_user{username = Username, password = encrypted_data(NewPassword), is_superuser = IsSuperuser},
+update_user(Login, NewPassword, IsSuperuser) ->
+    User = #emqx_user{login = Login, password = encrypted_data(NewPassword), is_superuser = IsSuperuser},
     ret(mnesia:transaction(fun do_update_user/1, [User])).
 
-do_update_user(User = #emqx_user{username = Username}) ->
-    case mnesia:read(emqx_user, Username) of
+do_update_user(User = #emqx_user{login = Login}) ->
+    case mnesia:read(emqx_user, Login) of
         [_|_] -> mnesia:write(User);
         [] -> mnesia:abort(noexisted)
     end.
 
-%% @doc Lookup user by username
+%% @doc Lookup user by login
 -spec(lookup_user(binary()) -> list()).
-lookup_user(Username) ->
-    mnesia:dirty_read(emqx_user, Username).
+lookup_user(Login) ->
+    mnesia:dirty_read(emqx_user, Login).
 
 %% @doc Remove user
 -spec(remove_user(binary()) -> ok | {error, any()}).
-remove_user(Username) ->
-    ret(mnesia:transaction(fun mnesia:delete/1, [{emqx_user, Username}])).
+remove_user(Login) ->
+    ret(mnesia:transaction(fun mnesia:delete/1, [{emqx_user, Login}])).
 
 ret({atomic, ok})     -> ok;
 ret({aborted, Error}) -> {error, Error}.
 
-%% @doc All usernames
+%% @doc All logins
 -spec(all_users() -> list()).
 all_users() -> mnesia:dirty_all_keys(emqx_user).
 

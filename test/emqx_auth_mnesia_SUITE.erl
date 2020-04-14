@@ -21,6 +21,18 @@
 -include("emqx_auth_mnesia.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
+
+-import(emqx_ct_http, [ request_api/3
+                      , request_api/5
+                      , get_http_data/1
+                      , create_default_app/0
+                      , default_auth_header/0
+                      ]).
+
+-define(HOST, "http://127.0.0.1:8081/").
+-define(API_VERSION, "v4").
+-define(BASE_PATH, "api").
+
 all() ->
     emqx_ct:all(?MODULE).
 
@@ -28,7 +40,8 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    emqx_ct_helpers:start_apps([emqx_auth_mnesia], fun set_special_configs/1),
+    emqx_ct_helpers:start_apps([emqx_management, emqx_auth_mnesia], fun set_special_configs/1),
+    create_default_app(),
     Config.
 
 end_per_suite(_Config) ->
@@ -104,10 +117,85 @@ t_check_as_clientid(_Config) ->
     {ok, #{auth_result := success,
            anonymous := true }} = emqx_access_control:authenticate(User1).
 
+t_rest_api(_) ->
+    clean_all_users(),
+    application:set_env(emqx_auth_mnesia, as, username),
+
+    {ok, Result} = request_http_rest_list(),
+    [] = get_http_data(Result),
+
+    Params = #{<<"login">> => <<"test_username">>, <<"password">> => <<"password">>, <<"is_superuser">> => true},
+    {ok, _} = request_http_rest_add(Params),
+
+    Params1 = [
+                #{<<"login">> => <<"test_username">>, <<"password">> => <<"password">>, <<"is_superuser">> => true},
+                #{<<"login">> => <<"test_username_1">>, <<"password">> => <<"password">>, <<"is_superuser">> => error_format},
+                #{<<"login">> => <<"test_username_2">>, <<"password">> => <<"password">>, <<"is_superuser">> => true}
+                ],
+    {ok, AddResult} = request_http_rest_add(Params1),
+    #{
+        <<"test_username">> := <<"{error,existed}">>,
+        <<"test_username_1">> := <<"{error,is_superuser}">>,
+        <<"test_username_2">> := <<"ok">>
+        } = get_http_data(AddResult),
+
+    {ok, Result1} = request_http_rest_lookup(<<"test_username">>),
+    #{<<"login">> := <<"test_username">>, <<"is_superuser">> := true} = get_http_data(Result1),
+
+    {ok, _} = request_http_rest_update(<<"test_username">>, <<"new_password">>, error_format),
+    {ok, _} = request_http_rest_update(<<"error_username">>, <<"new_password">>, false),
+
+    {ok, _} = request_http_rest_update(<<"test_username">>, <<"new_password">>, false),
+    {ok, Result2} = request_http_rest_lookup(<<"test_username">>),
+    #{<<"login">> := <<"test_username">>, <<"is_superuser">> := false} = get_http_data(Result2),
+
+    User1 = #{username => <<"test_username">>,
+        password => <<"new_password">>,
+        zone     => external},
+
+    {ok, #{is_superuser := false, 
+        auth_result := success,
+        anonymous := false}} = emqx_access_control:authenticate(User1),
+
+    {ok, _} = request_http_rest_delete(<<"test_username">>),
+    {ok, #{auth_result := success,
+           anonymous := true }} = emqx_access_control:authenticate(User1).
+
 %%------------------------------------------------------------------------------
 %% Helpers
 %%------------------------------------------------------------------------------
 
 clean_all_users() ->
-    [ mnesia:dirty_delete({emqx_user, Username})
-      || Username <- mnesia:dirty_all_keys(emqx_user)].
+    [ mnesia:dirty_delete({emqx_user, Login})
+      || Login <- mnesia:dirty_all_keys(emqx_user)].
+
+%%--------------------------------------------------------------------
+%% HTTP Request
+%%--------------------------------------------------------------------
+
+request_http_rest_list() ->
+    request_api(get, uri(), default_auth_header()).
+
+request_http_rest_lookup(Login) ->
+    request_api(get, uri([Login]), default_auth_header()).
+
+request_http_rest_add(Params) ->
+    request_api(post, uri(), [], default_auth_header(), Params).
+
+request_http_rest_update(Login, Password, IsSuperuser) ->
+    Params = #{<<"password">> => Password, <<"is_superuser">> => IsSuperuser},
+    request_api(put, uri([Login]), [], default_auth_header(), Params).
+
+request_http_rest_delete(Login) ->
+    request_api(delete, uri([Login]), default_auth_header()).
+
+uri() -> uri([]).
+uri(Parts) when is_list(Parts) ->
+    NParts = [b2l(E) || E <- Parts],
+    ?HOST ++ filename:join([?BASE_PATH, ?API_VERSION, "auth_mnesia"| NParts]).
+
+%% @private
+b2l(B) when is_binary(B) ->
+    binary_to_list(B);
+b2l(L) when is_list(L) ->
+    L.

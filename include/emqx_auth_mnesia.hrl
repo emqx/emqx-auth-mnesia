@@ -1,7 +1,7 @@
 -define(APP, emqx_auth_mnesia).
 
 -record(emqx_user, {
-        username,
+        login,
         password,
         is_superuser
     }).
