@@ -50,7 +50,10 @@ stop(_State) ->
     ok.
 
 load_auth_hook() ->
-    Params = #{hash_type => application:get_env(emqx_auth_mnesia, hash_type, sha256)},
+    Params = #{
+            hash_type => application:get_env(emqx_auth_mnesia, hash_type, sha256),
+            key_as => application:get_env(emqx_auth_mnesia, as, username)
+            },
     emqx:hook('client.authenticate', fun emqx_auth_mnesia:check/3, [Params]).
 
 load_acl_hook() ->

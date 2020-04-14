@@ -68,10 +68,13 @@ list(_Bindings, _Params) ->
 lookup(#{login := Longin}, _Params) ->
     return({ok, format(emqx_auth_mnesia_cli:lookup_user(Longin))}).
 
-add(_Bindings, Params = [{_,_} | _]) ->
-    return(add_user([Params], []));
-add(_Bindings, Params = [[{_,_} | _] | _]) ->
-    return(add_user(Params, [])).
+add(_Bindings, Params) ->
+    [ P | _] = Params,
+    case is_list(P) of
+        true -> return(add_user(Params, []));
+        false -> return(add_user([Params], []))
+    end.
+
 
 add_user([ Params | ParamsN ], ReList ) ->
     Longin = get_value(<<"login">>, Params),
@@ -91,17 +94,12 @@ update(#{login := Longin}, Params) ->
     Password = get_value(<<"password">>, Params),
     IsSuperuser = get_value(<<"is_superuser">>, Params),
     case validate([password, is_superuser], [Password, IsSuperuser]) of
-        ok ->
-            case emqx_auth_mnesia_cli:update_user(Longin, Password, IsSuperuser) of
-                ok  -> return();
-                Err -> return(Err)
-            end;
+        ok -> return(emqx_auth_mnesia_cli:update_user(Longin, Password, IsSuperuser));
         Err -> return(Err)
     end.
 
 delete(#{login := Longin}, _) ->
-    ok = emqx_auth_mnesia_cli:remove_user(Longin),
-    return().
+    return(emqx_auth_mnesia_cli:remove_user(Longin)).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs

@@ -46,8 +46,8 @@ add_default_user({Login, Password, IsSuperuser}) ->
 register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?AUTH_METRICS).
 
-check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType}) ->
-    Key = case application:get_env(emqx_auth_mnesia, as, username) of
+check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType, key_as := KeyAs}) ->
+    Key = case KeyAs of
         username -> #{username := Username} = ClientInfo, Username; 
         clientid -> #{clientid := ClientID} = ClientInfo, ClientID
     end,
@@ -60,8 +60,8 @@ check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType}
                 ok -> 
                     emqx_metrics:inc(?AUTH_METRICS(success)),
                     {stop, AuthResult#{is_superuser => is_superuser(User),
-                                        anonymous => false,
-                                        auth_result => success}};
+                                       anonymous => false,
+                                       auth_result => success}};
                 {error, Reason} -> 
                     ?LOG(error, "[Mnesia] Auth from mnesia failed: ~p", [Reason]),
                     emqx_metrics:inc(?AUTH_METRICS(failure)),
