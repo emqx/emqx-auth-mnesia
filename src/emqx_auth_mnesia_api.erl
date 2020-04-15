@@ -16,6 +16,8 @@
 
 -module(emqx_auth_mnesia_api).
 
+-include_lib("stdlib/include/qlc.hrl").
+
 -import(proplists, [get_value/2]).
 
 -import(minirest,  [return/1]).
@@ -62,8 +64,10 @@
         , delete/2
         ]).
 
-list(_Bindings, _Params) ->
-    return({ok, emqx_auth_mnesia_cli:all_users()}).
+-export([paginate/3]).
+
+list(_Bindings, Params) ->
+    return({ok, paginate(emqx_user, Params, fun format/1)}).
 
 lookup(#{login := Login}, _Params) ->
     return({ok, format(emqx_auth_mnesia_cli:lookup_user(Login))}).
@@ -101,8 +105,57 @@ delete(#{login := Login}, _) ->
     return(emqx_auth_mnesia_cli:remove_user(Login)).
 
 %%------------------------------------------------------------------------------
+%% Paging Query
+%%------------------------------------------------------------------------------
+
+paginate(Tables, Params, RowFun) ->
+    Qh = query_handle(Tables),
+    Count = count(Tables),
+    Page = page(Params),
+    Limit = limit(Params),
+    Cursor = qlc:cursor(Qh),
+    case Page > 1 of
+        true  -> qlc:next_answers(Cursor, (Page - 1) * Limit);
+        false -> ok
+    end,
+    Rows = qlc:next_answers(Cursor, Limit),
+    qlc:delete_cursor(Cursor),
+    #{meta  => #{page => Page, limit => Limit, count => Count},
+      data  => [RowFun(Row) || Row <- Rows]}.
+
+query_handle(Table) when is_atom(Table) ->
+    qlc:q([R|| R <- ets:table(Table)]);
+query_handle([Table]) when is_atom(Table) ->
+    qlc:q([R|| R <- ets:table(Table)]);
+query_handle(Tables) ->
+    qlc:append([qlc:q([E || E <- ets:table(T)]) || T <- Tables]).
+
+count(Table) when is_atom(Table) ->
+    ets:info(Table, size);
+count([Table]) when is_atom(Table) ->
+    ets:info(Table, size);
+count(Tables) ->
+    lists:sum([count(T) || T <- Tables]).
+
+page(Params) ->
+    binary_to_integer(proplists:get_value(<<"_page">>, Params, <<"1">>)).
+
+limit(Params) ->
+    case proplists:get_value(<<"_limit">>, Params) of
+        undefined -> 10;
+        Size      -> binary_to_integer(Size)
+    end.
+
+
+
+%%------------------------------------------------------------------------------
 %% Interval Funcs
 %%------------------------------------------------------------------------------
+
+format({emqx_user, Login, Password, IsSuperuser}) ->
+    #{login => Login,
+      password => Password,
+      is_superuser => IsSuperuser};
 
 format([]) ->
     #{};

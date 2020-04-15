@@ -60,7 +60,7 @@ load_acl_hook() ->
     ok = emqx_acl_mnesia:init(),
     ok = emqx_acl_mnesia:register_metrics(),
     Params = #{
-            key_as => application:get_env(emqx_auth_mnesia, aclas, username)
+            key_as => application:get_env(emqx_auth_mnesia, as, username)
             },
     emqx:hook('client.check_acl', fun emqx_acl_mnesia:check_acl/5, [Params]).
 

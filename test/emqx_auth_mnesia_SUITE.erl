@@ -138,8 +138,8 @@ t_check_as_clientid(_Config) ->
 t_rest_api(_Config) ->
     clean_all_users(),
 
-    {ok, Result} = request_http_rest_list(),
-    [] = get_http_data(Result),
+    {ok, Result1} = request_http_rest_list(),
+    [] = get_http_data(Result1),
 
     Params = #{<<"login">> => <<"test_username">>, <<"password">> => <<"password">>, <<"is_superuser">> => true},
     {ok, _} = request_http_rest_add(Params),
@@ -149,22 +149,22 @@ t_rest_api(_Config) ->
                 #{<<"login">> => <<"test_username_1">>, <<"password">> => <<"password">>, <<"is_superuser">> => error_format},
                 #{<<"login">> => <<"test_username_2">>, <<"password">> => <<"password">>, <<"is_superuser">> => true}
                 ],
-    {ok, AddResult} = request_http_rest_add(Params1),
+    {ok, Result2} = request_http_rest_add(Params1),
     #{
         <<"test_username">> := <<"{error,existed}">>,
         <<"test_username_1">> := <<"{error,is_superuser}">>,
         <<"test_username_2">> := <<"ok">>
-        } = get_http_data(AddResult),
+        } = get_http_data(Result2),
 
-    {ok, Result1} = request_http_rest_lookup(<<"test_username">>),
-    #{<<"login">> := <<"test_username">>, <<"is_superuser">> := true} = get_http_data(Result1),
+    {ok, Result3} = request_http_rest_lookup(<<"test_username">>),
+    #{<<"login">> := <<"test_username">>, <<"is_superuser">> := true} = get_http_data(Result3),
 
     {ok, _} = request_http_rest_update(<<"test_username">>, <<"new_password">>, error_format),
     {ok, _} = request_http_rest_update(<<"error_username">>, <<"new_password">>, false),
 
     {ok, _} = request_http_rest_update(<<"test_username">>, <<"new_password">>, false),
-    {ok, Result2} = request_http_rest_lookup(<<"test_username">>),
-    #{<<"login">> := <<"test_username">>, <<"is_superuser">> := false} = get_http_data(Result2),
+    {ok, Result4} = request_http_rest_lookup(<<"test_username">>),
+    #{<<"login">> := <<"test_username">>, <<"is_superuser">> := false} = get_http_data(Result4),
 
     User1 = #{username => <<"test_username">>,
         password => <<"new_password">>,

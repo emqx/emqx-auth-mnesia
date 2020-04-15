@@ -54,8 +54,8 @@
         , delete/2
         ]).
 
-list(_Bindings, _Params) ->
-    return({ok, emqx_acl_mnesia_cli:all_acls()}).
+list(_Bindings, Params) ->
+    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, Params, fun format/1)}).
 
 lookup(#{key := Key}, _Params) ->
     return({ok, format(emqx_acl_mnesia_cli:lookup_acl(Key))}).
@@ -87,6 +87,9 @@ delete(#{key := Key}, _) ->
 %%------------------------------------------------------------------------------
 %% Interval Funcs
 %%------------------------------------------------------------------------------
+
+format({emqx_acl, Key, Topic, Action}) ->
+    #{key => Key, topic => Topic, action => Action};
 
 format([]) ->
     #{};

@@ -72,10 +72,9 @@ do_check_acl(Key, PubSub, Topic, _NoMatchAction) ->
 match(_PubSub, _Topic, []) ->
     nomatch;
 match(PubSub, Topic, [ {emqx_acl, _Login, ACLTopic, Action} | UserAcl]) ->
-    case {match_topic(Topic, ACLTopic),
-          match_actions(PubSub, Action)} of
-        {true, true} -> allow;
-        {_, _} -> match(PubSub, Topic, UserAcl)
+    case match_actions(PubSub, Action) andalso match_topic(Topic, ACLTopic) of
+        true -> allow;
+        false -> match(PubSub, Topic, UserAcl)
     end.
 
 match_topic(Topic, ACLTopic) when is_binary(Topic) ->
