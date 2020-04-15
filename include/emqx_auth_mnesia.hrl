@@ -6,6 +6,12 @@
         is_superuser
     }).
 
+-record(emqx_acl, {
+        key,
+        topic,
+        action
+    }).
+
 -record(auth_metrics, {
         success = 'client.auth.success',
         failure = 'client.auth.failure',

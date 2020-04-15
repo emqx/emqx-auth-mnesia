@@ -14,43 +14,36 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
--module(emqx_auth_mnesia_api).
+-module(emqx_acl_mnesia_api).
 
 -import(proplists, [get_value/2]).
 
--import(minirest,  [return/1]).
+-import(minirest,  [return/0, return/1]).
 
--rest_api(#{name   => list_emqx_user,
+-rest_api(#{name   => list_emqx_acl,
             method => 'GET',
-            path   => "/emqx_user",
+            path   => "/emqx_acl",
             func   => list,
             descr  => "List available mnesia in the cluster"
            }).
 
--rest_api(#{name   => lookup_emqx_user,
+-rest_api(#{name   => lookup_emqx_acl,
             method => 'GET',
-            path   => "/emqx_user/:bin:login",
+            path   => "/emqx_acl/:bin:key",
             func   => lookup,
             descr  => "Lookup mnesia in the cluster"
            }).
 
--rest_api(#{name   => add_emqx_user,
+-rest_api(#{name   => add_emqx_acl,
             method => 'POST',
-            path   => "/emqx_user",
+            path   => "/emqx_acl",
             func   => add,
             descr  => "Add mnesia in the cluster"
            }).
 
--rest_api(#{name   => update_emqx_user,
-            method => 'PUT',
-            path   => "/emqx_user/:bin:login",
-            func   => update,
-            descr  => "Update mnesia in the cluster"
-           }).
-
--rest_api(#{name   => delete_emqx_user,
+-rest_api(#{name   => delete_emqx_acl,
             method => 'DELETE',
-            path   => "/emqx_user/:bin:login",
+            path   => "/emqx_acl/:bin:key",
             func   => delete,
             descr  => "Delete mnesia in the cluster"
            }).
@@ -58,47 +51,38 @@
 -export([ list/2
         , lookup/2
         , add/2
-        , update/2
         , delete/2
         ]).
 
 list(_Bindings, _Params) ->
-    return({ok, emqx_auth_mnesia_cli:all_users()}).
+    return({ok, emqx_acl_mnesia_cli:all_acls()}).
 
-lookup(#{login := Login}, _Params) ->
-    return({ok, format(emqx_auth_mnesia_cli:lookup_user(Login))}).
+lookup(#{key := Key}, _Params) ->
+    return({ok, format(emqx_acl_mnesia_cli:lookup_acl(Key))}).
 
 add(_Bindings, Params) ->
     [ P | _] = Params,
     case is_list(P) of
-        true -> return(add_user(Params, []));
-        false -> return(add_user([Params], []))
+        true -> return(add_acl(Params, []));
+        false -> return(add_acl([Params], []))
     end.
 
-add_user([ Params | ParamsN ], ReList ) ->
-    Login = get_value(<<"login">>, Params),
-    Password = get_value(<<"password">>, Params),
-    IsSuperuser = get_value(<<"is_superuser">>, Params),
-    Re = case validate([login, password, is_superuser], [Login, Password, IsSuperuser]) of
+add_acl([ Params | ParamsN ], ReList ) ->
+    Key = get_value(<<"key">>, Params),
+    Topic = get_value(<<"topic">>, Params),
+    Action = get_value(<<"action">>, Params),
+    Re = case validate([key, topic, action], [Key, Topic, Action]) of
         ok -> 
-            emqx_auth_mnesia_cli:add_user(Login, Password, IsSuperuser);
+            emqx_acl_mnesia_cli:add_acl(Key, Topic, Action);
         Err -> Err
     end,
-    add_user(ParamsN, [{Login, format_msg(Re)} | ReList]);   
+    add_acl(ParamsN, [{Key, format_msg(Re)} | ReList]);   
     
-add_user([], ReList) ->
+add_acl([], ReList) ->
     {ok, ReList}.
 
-update(#{login := Login}, Params) ->
-    Password = get_value(<<"password">>, Params),
-    IsSuperuser = get_value(<<"is_superuser">>, Params),
-    case validate([password, is_superuser], [Password, IsSuperuser]) of
-        ok -> return(emqx_auth_mnesia_cli:update_user(Login, Password, IsSuperuser));
-        Err -> return(Err)
-    end.
-
-delete(#{login := Login}, _) ->
-    return(emqx_auth_mnesia_cli:remove_user(Login)).
+delete(#{key := Key}, _) ->
+    return(emqx_acl_mnesia_cli:remove_acl(Key)).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs
@@ -107,10 +91,15 @@ delete(#{login := Login}, _) ->
 format([]) ->
     #{};
 
-format([{emqx_user, Login, Password, IsSuperuser}]) ->
-    #{login => Login,
-      password => Password,
-      is_superuser => IsSuperuser}.
+format([{emqx_acl, Key, Topic, Action}]) ->
+    #{key => Key, topic => Topic, action => Action};
+
+format([{emqx_acl, _Key, _Topic, _Action} | _] = List) ->
+    format(List, []).
+    
+format([{emqx_acl, Key, Topic, Action} | List], ReList) ->
+    format(List, [ #{key => Key, topic => Topic, action => Action} | ReList]);
+format([], ReList) -> ReList.
 
 validate([], []) ->
     ok;
@@ -120,14 +109,14 @@ validate([K|Keys], [V|Values]) ->
        true  -> validate(Keys, Values)
    end.
 
-validation(login, V) when is_binary(V)
+validation(key, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-validation(password, V) when is_binary(V)
+validation(topic, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-validation(is_superuser, V) when is_atom(V) ->
-    case V =:= false orelse V =:= true of
+validation(action, V) when is_binary(V) ->
+    case V =:= <<"pub">> orelse V =:= <<"sub">> orelse V =:= <<"pubsub">> of
         true -> true;
         false -> false
     end;

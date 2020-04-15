@@ -40,12 +40,32 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    emqx_ct_helpers:start_apps([emqx_management, emqx_auth_mnesia], fun set_special_configs/1),
+    ok = emqx_ct_helpers:start_apps([emqx_management, emqx_auth_mnesia], fun set_special_configs/1),
     create_default_app(),
     Config.
 
 end_per_suite(_Config) ->
-    emqx_ct_helpers:stop_apps([emqx_auth_mnesia]).
+    emqx_ct_helpers:stop_apps([emqx_management, emqx_auth_mnesia]).
+
+init_per_testcase(t_check_as_clientid, Config) ->
+    Params = #{
+            hash_type => application:get_env(emqx_auth_mnesia, hash_type, sha256),
+            key_as => clientid
+            },
+    emqx:hook('client.authenticate', fun emqx_auth_mnesia:check/3, [Params]),
+    Config;
+
+init_per_testcase(_, Config) ->
+    Params = #{
+            hash_type => application:get_env(emqx_auth_mnesia, hash_type, sha256),
+            key_as => username
+            },
+    emqx:hook('client.authenticate', fun emqx_auth_mnesia:check/3, [Params]),
+    Config.
+
+end_per_suite(_, Config) ->
+    emqx:unhook('client.authenticate', fun emqx_auth_mnesia:check/3),
+    Config.
 
 set_special_configs(emqx) ->
     application:set_env(emqx, allow_anonymous, true),
@@ -63,7 +83,6 @@ set_special_configs(_App) ->
 
 t_check_as_username(_Config) ->
     clean_all_users(),
-    application:set_env(emqx_auth_mnesia, as, username),
 
     ok = emqx_auth_mnesia_cli:add_user(<<"test_username">>, <<"password">>, true),
     {error, existed} = emqx_auth_mnesia_cli:add_user(<<"test_username">>, <<"password">>, true),
@@ -73,7 +92,7 @@ t_check_as_username(_Config) ->
 
     [<<"test_username">>] = emqx_auth_mnesia_cli:all_users(),
     [{emqx_user, <<"test_username">>, _HashedPass, false}] =
-    emqx_auth_mnesia_cli:lookup_user(<<"test_username">>),
+        emqx_auth_mnesia_cli:lookup_user(<<"test_username">>),
 
     User1 = #{username => <<"test_username">>,
               password => <<"new_password">>,
@@ -91,7 +110,6 @@ t_check_as_username(_Config) ->
 
 t_check_as_clientid(_Config) ->
     clean_all_users(),
-    application:set_env(emqx_auth_mnesia, as, clientid),
 
     ok = emqx_auth_mnesia_cli:add_user(<<"test_clientid">>, <<"password">>, false),
     {error, existed} = emqx_auth_mnesia_cli:add_user(<<"test_clientid">>, <<"password">>, false),
@@ -117,9 +135,8 @@ t_check_as_clientid(_Config) ->
     {ok, #{auth_result := success,
            anonymous := true }} = emqx_access_control:authenticate(User1).
 
-t_rest_api(_) ->
+t_rest_api(_Config) ->
     clean_all_users(),
-    application:set_env(emqx_auth_mnesia, as, username),
 
     {ok, Result} = request_http_rest_list(),
     [] = get_http_data(Result),

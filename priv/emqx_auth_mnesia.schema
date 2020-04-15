@@ -32,3 +32,8 @@
         AccIn
        end, [], Userlist)
 end}.
+
+{mapping, "auth.mnesia.aclas", "emqx_auth_mnesia.aclas", [
+  {default, username},
+  {datatype, {enum, [username, clientid]}}
+]}.

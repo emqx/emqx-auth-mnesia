@@ -29,8 +29,6 @@
         , description/0
         ]).
 
--define(EMPTY(Username), (Username =:= undefined orelse Username =:= <<>>)).
-
 init(DefaultUsers) ->
     ok = ekka_mnesia:create_table(emqx_user, [
             {disc_copies, [node()]},
