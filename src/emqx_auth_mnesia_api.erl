@@ -24,35 +24,35 @@
 
 -rest_api(#{name   => list_emqx_user,
             method => 'GET',
-            path   => "/emqx_user",
+            path   => "/auth_user",
             func   => list,
             descr  => "List available mnesia in the cluster"
            }).
 
 -rest_api(#{name   => lookup_emqx_user,
             method => 'GET',
-            path   => "/emqx_user/:bin:login",
+            path   => "/auth_user/:bin:login",
             func   => lookup,
             descr  => "Lookup mnesia in the cluster"
            }).
 
 -rest_api(#{name   => add_emqx_user,
             method => 'POST',
-            path   => "/emqx_user",
+            path   => "/auth_user",
             func   => add,
             descr  => "Add mnesia in the cluster"
            }).
 
 -rest_api(#{name   => update_emqx_user,
             method => 'PUT',
-            path   => "/emqx_user/:bin:login",
+            path   => "/auth_user/:bin:login",
             func   => update,
             descr  => "Update mnesia in the cluster"
            }).
 
 -rest_api(#{name   => delete_emqx_user,
             method => 'DELETE',
-            path   => "/emqx_user/:bin:login",
+            path   => "/auth_user/:bin:login",
             func   => delete,
             descr  => "Delete mnesia in the cluster"
            }).
