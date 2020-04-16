@@ -75,17 +75,17 @@ set_special_configs(_App) ->
 
 t_management(_Config) ->
     clean_all_acls(),
-    ?assertEqual([], emqx_acl_mnesia_cli:all_acls()),
+    ?assertEqual([], emqx_auth_mnesia_cli:all_acls()),
 
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>),
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>),
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/C">>, <<"pubsub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/C">>, <<"pubsub">>),
     
     ?assertEqual([{emqx_acl,<<"test_username">>,<<"Topic/A">>,<<"sub">>},
                   {emqx_acl,<<"test_username">>,<<"Topic/B">>,<<"pub">>},
-                  {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>}],emqx_acl_mnesia_cli:lookup_acl(<<"test_username">>)),
-    ok = emqx_acl_mnesia_cli:remove_acl(<<"test_username">>),
-    ?assertEqual([], emqx_acl_mnesia_cli:lookup_acl(<<"test_username">>)).
+                  {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>}],emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)),
+    ok = emqx_auth_mnesia_cli:remove_acl(<<"test_username">>),
+    ?assertEqual([], emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)).
 
 t_check_acl_as_username(_Config) ->
     clean_all_acls(),
@@ -94,9 +94,9 @@ t_check_acl_as_username(_Config) ->
     User1 = #{zone => external, username => <<"test_username">>},
     User2 = #{zone => external, username => <<"no_exist">>},
 
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>),
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>),
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A/B">>, <<"pubsub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A/B">>, <<"pubsub">>),
    
     allow = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A">>),
     deny  = emqx_access_control:check_acl(User1, subscribe, <<"Topic/B">>),
@@ -115,9 +115,9 @@ t_check_acl_as_clientid(_) ->
     User1 = #{zone => external, clientid => <<"test_clientid">>},
     User2 = #{zone => external, clientid => <<"no_exist">>},
 
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_clientid">>, <<"#">>, <<"sub">>),
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_clientid">>, <<"+/A">>, <<"pub">>),
-    ok = emqx_acl_mnesia_cli:add_acl(<<"test_clientid">>, <<"Topic/A/B">>, <<"pubsub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"#">>, <<"sub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"+/A">>, <<"pub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"Topic/A/B">>, <<"pubsub">>),
 
     allow = emqx_access_control:check_acl(User1, subscribe, <<"Any">>),
     allow = emqx_access_control:check_acl(User1, publish, <<"Any/A">>),
@@ -157,9 +157,9 @@ t_rest_api(_Config) ->
 
     dbg:tracer(),
     dbg:p(all,c),
-    dbg:tpl(emqx_acl_mnesia_cli, remove_acl, cx),
-    dbg:tpl(emqx_acl_mnesia_cli, lookup_acl, cx),
-    dbg:tpl(emqx_acl_mnesia_cli, all_acls, cx),
+    dbg:tpl(emqx_auth_mnesia_cli, remove_acl, cx),
+    dbg:tpl(emqx_auth_mnesia_cli, lookup_acl, cx),
+    dbg:tpl(emqx_auth_mnesia_cli, all_acls, cx),
 
     {ok, _} = request_http_rest_delete(<<"test_username">>),
     {ok, _} = request_http_rest_delete(<<"test_username_1">>),

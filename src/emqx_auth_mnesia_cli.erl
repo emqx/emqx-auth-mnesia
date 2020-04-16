@@ -18,16 +18,22 @@
 
 -include("emqx_auth_mnesia.hrl").
 
-%% APIs
+%% Auth APIs
 -export([ add_user/3
         , update_user/3
         , remove_user/1
         , lookup_user/1
         , all_users/0
         ]).
+%% Acl APIs
+-export([ add_acl/3
+        , remove_acl/1
+        , lookup_acl/1
+        , all_acls/0
+        ]).
 
 %%--------------------------------------------------------------------
-%% API
+%% Auth APIs
 %%--------------------------------------------------------------------
 
 %% @doc Add User
@@ -64,16 +70,41 @@ lookup_user(Login) ->
 remove_user(Login) ->
     ret(mnesia:transaction(fun mnesia:delete/1, [{emqx_user, Login}])).
 
-ret({atomic, ok})     -> ok;
-ret({aborted, Error}) -> {error, Error}.
-
 %% @doc All logins
 -spec(all_users() -> list()).
 all_users() -> mnesia:dirty_all_keys(emqx_user).
 
 %%--------------------------------------------------------------------
+%% Acl API
+%%--------------------------------------------------------------------
+
+%% @doc Add Acls
+-spec(add_acl(binary(), binary(), binary()) -> ok | {error, any()}).
+add_acl(Key, Topic, Action) ->
+    Acls = #emqx_acl{key = Key, topic = Topic, action = Action},
+    ret(mnesia:transaction(fun mnesia:write/1, [Acls])).
+
+%% @doc Lookup acl by key
+-spec(lookup_acl(binary()) -> list()).
+lookup_acl(Key) ->
+    mnesia:dirty_read(emqx_acl, Key).
+
+%% @doc Remove acl
+-spec(remove_acl(binary()) -> ok | {error, any()}).
+remove_acl(Key) ->
+    ret(mnesia:transaction(fun mnesia:delete/1, [{emqx_acl, Key}])).
+
+%% @doc All logins
+-spec(all_acls() -> list()).
+all_acls() -> mnesia:dirty_all_keys(emqx_acl).
+
+
+%%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
+
+ret({atomic, ok})     -> ok;
+ret({aborted, Error}) -> {error, Error}.
 
 encrypted_data(Password) ->
     HashType = application:get_env(emqx_auth_mnesia, hash_type, sha256),

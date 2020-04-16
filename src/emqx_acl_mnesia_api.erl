@@ -16,6 +16,8 @@
 
 -module(emqx_acl_mnesia_api).
 
+-include("emqx_auth_mnesia.hrl").
+
 -import(proplists, [get_value/2]).
 
 -import(minirest,  [return/0, return/1]).
@@ -58,7 +60,7 @@ list(_Bindings, Params) ->
     return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, Params, fun format/1)}).
 
 lookup(#{key := Key}, _Params) ->
-    return({ok, format(emqx_acl_mnesia_cli:lookup_acl(Key))}).
+    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(Key))}).
 
 add(_Bindings, Params) ->
     [ P | _] = Params,
@@ -73,7 +75,7 @@ add_acl([ Params | ParamsN ], ReList ) ->
     Action = get_value(<<"action">>, Params),
     Re = case validate([key, topic, action], [Key, Topic, Action]) of
         ok -> 
-            emqx_acl_mnesia_cli:add_acl(Key, Topic, Action);
+            emqx_auth_mnesia_cli:add_acl(Key, Topic, Action);
         Err -> Err
     end,
     add_acl(ParamsN, [{Key, format_msg(Re)} | ReList]);   
@@ -82,13 +84,13 @@ add_acl([], ReList) ->
     {ok, ReList}.
 
 delete(#{key := Key}, _) ->
-    return(emqx_acl_mnesia_cli:remove_acl(Key)).
+    return(emqx_auth_mnesia_cli:remove_acl(Key)).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs
 %%------------------------------------------------------------------------------
 
-format({emqx_acl, Key, Topic, Action}) ->
+format(#emqx_acl{key = Key, topic = Topic, action = Action}) ->
     #{key => Key, topic => Topic, action => Action};
 
 format([]) ->
@@ -97,11 +99,11 @@ format([]) ->
 format([{emqx_acl, Key, Topic, Action}]) ->
     #{key => Key, topic => Topic, action => Action};
 
-format([{emqx_acl, _Key, _Topic, _Action} | _] = List) ->
+format([ #emqx_acl{key = _Key, topic = _Topic, action = _Action}| _] = List) ->
     format(List, []).
     
-format([{emqx_acl, Key, Topic, Action} | List], ReList) ->
-    format(List, [ #{key => Key, topic => Topic, action => Action} | ReList]);
+format([#emqx_acl{key = Key, topic = Topic, action = Action} | List], ReList) ->
+    format(List, [ format(#emqx_acl{key = Key, topic = Topic, action = Action}) | ReList]);
 format([], ReList) -> ReList.
 
 validate([], []) ->

@@ -45,10 +45,7 @@ register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?AUTH_METRICS).
 
 check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType, key_as := KeyAs}) ->
-    Key = case KeyAs of
-        username -> #{username := Username} = ClientInfo, Username; 
-        clientid -> #{clientid := ClientID} = ClientInfo, ClientID
-    end,
+    Key = maps:get(KeyAs, ClientInfo, username),
     case emqx_auth_mnesia_cli:lookup_user(Key) of
         [] -> 
             emqx_metrics:inc(?AUTH_METRICS(ignore)),
