@@ -84,8 +84,9 @@ t_management(_Config) ->
     ?assertEqual([{emqx_acl,<<"test_username">>,<<"Topic/A">>,<<"sub">>},
                   {emqx_acl,<<"test_username">>,<<"Topic/B">>,<<"pub">>},
                   {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>}],emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)),
-    ok = emqx_auth_mnesia_cli:remove_acl(<<"test_username">>),
-    ?assertEqual([], emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)).
+    ok = emqx_auth_mnesia_cli:remove_acl(<<"test_username">>, <<"Topic/A">>),
+    ?assertEqual([{emqx_acl,<<"test_username">>,<<"Topic/B">>,<<"pub">>},
+                  {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>}], emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)).
 
 t_check_acl_as_username(_Config) ->
     clean_all_acls(),
@@ -155,14 +156,8 @@ t_rest_api(_Config) ->
      #{<<"key">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>}]
      = get_http_data(Result3),
 
-    dbg:tracer(),
-    dbg:p(all,c),
-    dbg:tpl(emqx_auth_mnesia_cli, remove_acl, cx),
-    dbg:tpl(emqx_auth_mnesia_cli, lookup_acl, cx),
-    dbg:tpl(emqx_auth_mnesia_cli, all_acls, cx),
-
-    {ok, _} = request_http_rest_delete(<<"test_username">>),
-    {ok, _} = request_http_rest_delete(<<"test_username_1">>),
+    {ok, _} = request_http_rest_delete(<<"test_username">>, <<"+/A">>),
+    {ok, _} = request_http_rest_delete(<<"test_username_1">>, <<"Topic/A">>),
     {ok, Result4} = request_http_rest_list(),
     [] = get_http_data(Result4).
 
@@ -181,14 +176,14 @@ clean_all_acls() ->
 request_http_rest_list() ->
     request_api(get, uri(), default_auth_header()).
 
-request_http_rest_lookup(Login) ->
-    request_api(get, uri([Login]), default_auth_header()).
+request_http_rest_lookup(Key) ->
+    request_api(get, uri([Key]), default_auth_header()).
 
 request_http_rest_add(Params) ->
     request_api(post, uri(), [], default_auth_header(), Params).
 
-request_http_rest_delete(Login) ->
-    request_api(delete, uri([Login]), default_auth_header()).
+request_http_rest_delete(Key, Topic) ->
+    request_api(delete, uri([Key, Topic]), default_auth_header()).
 
 uri() -> uri([]).
 uri(Parts) when is_list(Parts) ->
@@ -197,6 +192,6 @@ uri(Parts) when is_list(Parts) ->
 
 %% @private
 b2l(B) when is_binary(B) ->
-    binary_to_list(B);
+    http_uri:encode(binary_to_list(B));
 b2l(L) when is_list(L) ->
-    L.
+    http_uri:encode(L).

@@ -27,7 +27,7 @@
         ]).
 %% Acl APIs
 -export([ add_acl/3
-        , remove_acl/1
+        , remove_acl/2
         , lookup_acl/1
         , all_acls/0
         ]).
@@ -90,9 +90,11 @@ lookup_acl(Key) ->
     mnesia:dirty_read(emqx_acl, Key).
 
 %% @doc Remove acl
--spec(remove_acl(binary()) -> ok | {error, any()}).
-remove_acl(Key) ->
-    ret(mnesia:transaction(fun mnesia:delete/1, [{emqx_acl, Key}])).
+-spec(remove_acl(binary(), binary()) -> ok | {error, any()}).
+remove_acl(Key, Topic) ->
+    [ mnesia:dirty_delete_object(emqx_acl, #emqx_acl{key = Key, topic = Topic, action = Action}) || Action <- ets:select(emqx_acl, [{{emqx_acl, Key, Topic,'$1'}, [], ['$1']}])],
+    ok.
+
 
 %% @doc All logins
 -spec(all_acls() -> list()).

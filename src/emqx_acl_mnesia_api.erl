@@ -45,7 +45,7 @@
 
 -rest_api(#{name   => delete_emqx_acl,
             method => 'DELETE',
-            path   => "/emqx_acl/:bin:key",
+            path   => "/emqx_acl/:bin:key:topic",
             func   => delete,
             descr  => "Delete mnesia in the cluster"
            }).
@@ -83,8 +83,8 @@ add_acl([ Params | ParamsN ], ReList ) ->
 add_acl([], ReList) ->
     {ok, ReList}.
 
-delete(#{key := Key}, _) ->
-    return(emqx_auth_mnesia_cli:remove_acl(Key)).
+delete(#{key := Key, topic := Topic}, _) ->
+    return(emqx_auth_mnesia_cli:remove_acl(Key, http_uri:decode(Topic))).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs
