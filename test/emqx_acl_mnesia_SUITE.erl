@@ -157,7 +157,8 @@ t_rest_api(_Config) ->
      = get_http_data(Result3),
 
     {ok, _} = request_http_rest_delete(<<"test_username">>, <<"+/A">>),
-    {ok, _} = request_http_rest_delete(<<"test_username_1">>, <<"Topic/A">>),
+    {ok, _} = request_http_rest_delete(<<"test_username">>, <<"Topic/A">>),
+    {ok, _} = request_http_rest_delete(<<"test_username_1">>, <<"#">>),
     {ok, Result4} = request_http_rest_list(),
     [] = get_http_data(Result4).
 

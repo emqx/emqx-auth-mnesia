@@ -45,7 +45,7 @@
 
 -rest_api(#{name   => delete_emqx_acl,
             method => 'DELETE',
-            path   => "/emqx_acl/:bin:key:topic",
+            path   => "/emqx_acl/:bin:key/:bin:topic",
             func   => delete,
             descr  => "Delete mnesia in the cluster"
            }).
