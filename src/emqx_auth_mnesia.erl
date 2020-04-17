@@ -32,7 +32,8 @@
 init(DefaultUsers) ->
     ok = ekka_mnesia:create_table(emqx_user, [
             {disc_copies, [node()]},
-            {attributes, record_info(fields, emqx_user)}]),
+            {attributes, record_info(fields, emqx_user)},
+            {storage_properties, [{ets, [{read_concurrency, true}]}]}]),
     ok = lists:foreach(fun add_default_user/1, DefaultUsers),
     ok = ekka_mnesia:copy_table(emqx_user, disc_copies).
 
