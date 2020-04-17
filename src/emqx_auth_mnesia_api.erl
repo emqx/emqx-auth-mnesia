@@ -168,23 +168,23 @@ format([{emqx_user, Login, Password, IsSuperuser}]) ->
 validate([], []) ->
     ok;
 validate([K|Keys], [V|Values]) ->
-   case validation(K, V) of
+   case do_validation(K, V) of
        false -> {error, K};
        true  -> validate(Keys, Values)
    end.
 
-validation(login, V) when is_binary(V)
+do_validation(login, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-validation(password, V) when is_binary(V)
+do_validation(password, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-validation(is_superuser, V) when is_atom(V) ->
+do_validation(is_superuser, V) when is_atom(V) ->
     case V =:= false orelse V =:= true of
         true -> true;
         false -> false
     end;
-validation(_, _) ->
+do_validation(_, _) ->
     false.
 
 format_msg(Message)

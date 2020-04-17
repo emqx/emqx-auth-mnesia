@@ -40,9 +40,9 @@ init() ->
 register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?ACL_METRICS).
 
-check_acl(ClientInfo, PubSub, Topic, NoMatchAction, #{key_as := KeyAs}) ->
-    Key = maps:get(KeyAs, ClientInfo, username),
-    case do_check_acl(Key, PubSub, Topic, NoMatchAction) of
+check_acl(ClientInfo, PubSub, Topic, NoMatchAction, #{key_as := As}) ->
+    Login = maps:get(As, ClientInfo),
+    case do_check_acl(Login, PubSub, Topic, NoMatchAction) of
         ok -> emqx_metrics:inc(?ACL_METRICS(ignore)), ok;
         {stop, allow} -> emqx_metrics:inc(?ACL_METRICS(allow)), {stop, allow};
         {stop, deny} -> emqx_metrics:inc(?ACL_METRICS(deny)), {stop, deny}
@@ -54,8 +54,8 @@ description() -> "Acl with Mnesia".
 %% Internal functions
 %%-------------------------------------------------------------------
 
-do_check_acl(Key, PubSub, Topic, _NoMatchAction) ->
-    case emqx_auth_mnesia_cli:lookup_acl(Key) of
+do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
+    case emqx_auth_mnesia_cli:lookup_acl(Login) of
         [] -> ok;
         UserAcl ->
             case match(PubSub, Topic, UserAcl) of

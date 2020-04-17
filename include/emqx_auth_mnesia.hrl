@@ -7,7 +7,7 @@
     }).
 
 -record(emqx_acl, {
-        key,
+        login,
         topic,
         action
     }).

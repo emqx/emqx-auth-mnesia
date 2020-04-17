@@ -45,9 +45,9 @@ add_default_user({Login, Password, IsSuperuser}) ->
 register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?AUTH_METRICS).
 
-check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType, key_as := KeyAs}) ->
-    Key = maps:get(KeyAs, ClientInfo, username),
-    case emqx_auth_mnesia_cli:lookup_user(Key) of
+check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType, key_as := As}) ->
+    Login = maps:get(As, ClientInfo),
+    case emqx_auth_mnesia_cli:lookup_user(Login) of
         [] -> 
             emqx_metrics:inc(?AUTH_METRICS(ignore)),
             ok;

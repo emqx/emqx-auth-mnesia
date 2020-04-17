@@ -31,7 +31,7 @@
 
 -rest_api(#{name   => lookup_emqx_acl,
             method => 'GET',
-            path   => "/emqx_acl/:bin:key",
+            path   => "/emqx_acl/:bin:login",
             func   => lookup,
             descr  => "Lookup mnesia in the cluster"
            }).
@@ -45,7 +45,7 @@
 
 -rest_api(#{name   => delete_emqx_acl,
             method => 'DELETE',
-            path   => "/emqx_acl/:bin:key/:bin:topic",
+            path   => "/emqx_acl/:bin:login/:bin:topic",
             func   => delete,
             descr  => "Delete mnesia in the cluster"
            }).
@@ -59,8 +59,8 @@
 list(_Bindings, Params) ->
     return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, Params, fun format/1)}).
 
-lookup(#{key := Key}, _Params) ->
-    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(Key))}).
+lookup(#{login := Login}, _Params) ->
+    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(Login))}).
 
 add(_Bindings, Params) ->
     [ P | _] = Params,
@@ -70,62 +70,62 @@ add(_Bindings, Params) ->
     end.
 
 add_acl([ Params | ParamsN ], ReList ) ->
-    Key = get_value(<<"key">>, Params),
+    Login = get_value(<<"login">>, Params),
     Topic = get_value(<<"topic">>, Params),
     Action = get_value(<<"action">>, Params),
-    Re = case validate([key, topic, action], [Key, Topic, Action]) of
+    Re = case validate([login, topic, action], [Login, Topic, Action]) of
         ok -> 
-            emqx_auth_mnesia_cli:add_acl(Key, Topic, Action);
+            emqx_auth_mnesia_cli:add_acl(Login, Topic, Action);
         Err -> Err
     end,
-    add_acl(ParamsN, [{Key, format_msg(Re)} | ReList]);   
+    add_acl(ParamsN, [{Login, format_msg(Re)} | ReList]);   
     
 add_acl([], ReList) ->
     {ok, ReList}.
 
-delete(#{key := Key, topic := Topic}, _) ->
-    return(emqx_auth_mnesia_cli:remove_acl(Key, http_uri:decode(Topic))).
+delete(#{login := Login, topic := Topic}, _) ->
+    return(emqx_auth_mnesia_cli:remove_acl(Login, http_uri:decode(Topic))).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs
 %%------------------------------------------------------------------------------
 
-format(#emqx_acl{key = Key, topic = Topic, action = Action}) ->
-    #{key => Key, topic => Topic, action => Action};
+format(#emqx_acl{login = Login, topic = Topic, action = Action}) ->
+    #{login => Login, topic => Topic, action => Action};
 
 format([]) ->
     #{};
 
-format([{emqx_acl, Key, Topic, Action}]) ->
-    #{key => Key, topic => Topic, action => Action};
+format([{emqx_acl, Login, Topic, Action}]) ->
+    #{login => Login, topic => Topic, action => Action};
 
-format([ #emqx_acl{key = _Key, topic = _Topic, action = _Action}| _] = List) ->
+format([ #emqx_acl{login = _Key, topic = _Topic, action = _Action}| _] = List) ->
     format(List, []).
     
-format([#emqx_acl{key = Key, topic = Topic, action = Action} | List], ReList) ->
-    format(List, [ format(#emqx_acl{key = Key, topic = Topic, action = Action}) | ReList]);
+format([#emqx_acl{login = Login, topic = Topic, action = Action} | List], ReList) ->
+    format(List, [ format(#emqx_acl{login = Login, topic = Topic, action = Action}) | ReList]);
 format([], ReList) -> ReList.
 
 validate([], []) ->
     ok;
 validate([K|Keys], [V|Values]) ->
-   case validation(K, V) of
+   case do_validation(K, V) of
        false -> {error, K};
        true  -> validate(Keys, Values)
    end.
 
-validation(key, V) when is_binary(V)
+do_validation(login, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-validation(topic, V) when is_binary(V)
+do_validation(topic, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-validation(action, V) when is_binary(V) ->
+do_validation(action, V) when is_binary(V) ->
     case V =:= <<"pub">> orelse V =:= <<"sub">> orelse V =:= <<"pubsub">> of
         true -> true;
         false -> false
     end;
-validation(_, _) ->
+do_validation(_, _) ->
     false.
 
 format_msg(Message)

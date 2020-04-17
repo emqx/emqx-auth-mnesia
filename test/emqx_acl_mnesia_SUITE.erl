@@ -134,15 +134,15 @@ t_rest_api(_Config) ->
     {ok, Result} = request_http_rest_list(),
     [] = get_http_data(Result),
 
-    Params = #{<<"key">> => <<"test_username">>, <<"topic">> => <<"Topic/A">>, <<"action">> => <<"pubsub">>},
+    Params = #{<<"login">> => <<"test_username">>, <<"topic">> => <<"Topic/A">>, <<"action">> => <<"pubsub">>},
     {ok, _} = request_http_rest_add(Params),
     {ok, Result1} = request_http_rest_lookup(<<"test_username">>),
-    #{<<"key">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>} = get_http_data(Result1),
+    #{<<"login">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>} = get_http_data(Result1),
 
     Params1 = [
-                #{<<"key">> => <<"test_username">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"pub">>},
-                #{<<"key">> => <<"test_username_1">>, <<"topic">> => <<"#">>, <<"action">> => <<"sub">>},
-                #{<<"key">> => <<"test_username_2">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"error_format">>}
+                #{<<"login">> => <<"test_username">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"pub">>},
+                #{<<"login">> => <<"test_username_1">>, <<"topic">> => <<"#">>, <<"action">> => <<"sub">>},
+                #{<<"login">> => <<"test_username_2">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"error_format">>}
                 ],
     {ok, Result2} = request_http_rest_add(Params1),
     #{
@@ -152,8 +152,8 @@ t_rest_api(_Config) ->
         } = get_http_data(Result2),
 
     {ok, Result3} = request_http_rest_lookup(<<"test_username">>),
-    [#{<<"key">> := <<"test_username">>, <<"topic">> := <<"+/A">>, <<"action">> := <<"pub">>},
-     #{<<"key">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>}]
+    [#{<<"login">> := <<"test_username">>, <<"topic">> := <<"+/A">>, <<"action">> := <<"pub">>},
+     #{<<"login">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>}]
      = get_http_data(Result3),
 
     {ok, _} = request_http_rest_delete(<<"test_username">>, <<"+/A">>),
@@ -167,8 +167,8 @@ t_rest_api(_Config) ->
 %%------------------------------------------------------------------------------
 
 clean_all_acls() ->
-    [ mnesia:dirty_delete({emqx_acl, Key})
-      || Key <- mnesia:dirty_all_keys(emqx_acl)].
+    [ mnesia:dirty_delete({emqx_acl, Login})
+      || Login <- mnesia:dirty_all_keys(emqx_acl)].
 
 %%--------------------------------------------------------------------
 %% HTTP Request
@@ -177,14 +177,14 @@ clean_all_acls() ->
 request_http_rest_list() ->
     request_api(get, uri(), default_auth_header()).
 
-request_http_rest_lookup(Key) ->
-    request_api(get, uri([Key]), default_auth_header()).
+request_http_rest_lookup(Login) ->
+    request_api(get, uri([Login]), default_auth_header()).
 
 request_http_rest_add(Params) ->
     request_api(post, uri(), [], default_auth_header(), Params).
 
-request_http_rest_delete(Key, Topic) ->
-    request_api(delete, uri([Key, Topic]), default_auth_header()).
+request_http_rest_delete(Login, Topic) ->
+    request_api(delete, uri([Login, Topic]), default_auth_header()).
 
 uri() -> uri([]).
 uri(Parts) when is_list(Parts) ->
