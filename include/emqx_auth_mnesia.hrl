@@ -1,9 +1,15 @@
 -define(APP, emqx_auth_mnesia).
 
 -record(emqx_user, {
-        username,
+        login,
         password,
         is_superuser
+    }).
+
+-record(emqx_acl, {
+        login,
+        topic,
+        action
     }).
 
 -record(auth_metrics, {

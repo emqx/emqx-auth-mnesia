@@ -22,98 +22,63 @@
 -include_lib("emqx/include/logger.hrl").
 
 %% ACL Callbacks
--export([ register_metrics/0
+-export([ init/0
+        , register_metrics/0
         , check_acl/5
         , description/0
         ]).
+
+init() ->
+    ok = ekka_mnesia:create_table(emqx_acl, [
+            {type, bag},
+            {disc_copies, [node()]},
+            {attributes, record_info(fields, emqx_acl)},
+            {storage_properties, [{ets, [{read_concurrency, true}]}]}]),
+    ok = ekka_mnesia:copy_table(emqx_user, disc_copies).
 
 -spec(register_metrics() -> ok).
 register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?ACL_METRICS).
 
-check_acl(ClientInfo, PubSub, Topic, NoMatchAction, _Params) ->
-    case do_check_acl(ClientInfo, PubSub, Topic, NoMatchAction) of
+check_acl(ClientInfo, PubSub, Topic, NoMatchAction, #{key_as := As}) ->
+    Login = maps:get(As, ClientInfo),
+    case do_check_acl(Login, PubSub, Topic, NoMatchAction) of
         ok -> emqx_metrics:inc(?ACL_METRICS(ignore)), ok;
         {stop, allow} -> emqx_metrics:inc(?ACL_METRICS(allow)), {stop, allow};
         {stop, deny} -> emqx_metrics:inc(?ACL_METRICS(deny)), {stop, deny}
     end.
 
-do_check_acl(#{username := <<$$, _/binary>>}, _PubSub, _Topic, _NoMatchAction) ->
-    ok;
-do_check_acl(ClientInfo, PubSub, Topic, _NoMatchAction) ->
-    case emqx_auth_mnesia_cli:query(ClientInfo) of
-        {ok, undefined} -> ok;
-        {ok, UserAcl} ->
-            Rules = filter(PubSub, compile(UserAcl)),
-            case match(ClientInfo, Topic, Rules) of
-                {matched, allow} -> {stop, allow};
-                {matched, deny}  -> {stop, deny};
-                nomatch          -> ok
+description() -> "Acl with Mnesia".
+
+%%--------------------------------------------------------------------
+%% Internal functions
+%%-------------------------------------------------------------------
+
+do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
+    case emqx_auth_mnesia_cli:lookup_acl(Login) of
+        [] -> ok;
+        UserAcl ->
+            case match(PubSub, Topic, UserAcl) of
+                allow -> {stop, allow};
+                nomatch -> {stop, deny}
             end;
         {error, Reason} ->
             ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
             ok
     end.
 
-match(_ClientInfo, _Topic, []) ->
+match(_PubSub, _Topic, []) ->
     nomatch;
-
-match(ClientInfo, Topic, [Rule|Rules]) ->
-    case emqx_access_rule:match(ClientInfo, Topic, Rule) of
-        nomatch ->
-            match(ClientInfo, Topic, Rules);
-        {matched, AllowDeny} ->
-            {matched, AllowDeny}
+match(PubSub, Topic, [ #emqx_acl{topic = ACLTopic, action = Action} | UserAcl]) ->
+    case match_actions(PubSub, Action) andalso match_topic(Topic, ACLTopic) of
+        true -> allow;
+        false -> match(PubSub, Topic, UserAcl)
     end.
 
-filter(PubSub, Rules) ->
-    [Term || Term = {_, _, Access, _} <- Rules,
-             Access =:= PubSub orelse Access =:= pubsub].
+match_topic(Topic, ACLTopic) when is_binary(Topic) ->
+    emqx_topic:match(Topic, ACLTopic).
 
-compile(Rows) ->
-    compile(Rows, []).
-compile([], Acc) ->
-    Acc;
-compile([[Allow, IpAddr, Username, ClientId, Access, Topic]|T], Acc) ->
-    Who  = who(IpAddr, Username, ClientId),
-    Term = {allow(Allow), Who, access(Access), [topic(Topic)]},
-    compile(T, [emqx_access_rule:compile(Term) | Acc]).
-
-who(_, <<"$all">>, _) ->
-    all;
-who(null, null, null) ->
-    throw(undefined_who);
-who(CIDR, Username, ClientId) ->
-    Cols = [{ipaddr, b2l(CIDR)}, {user, Username}, {client, ClientId}],
-    case [{C, V} || {C, V} <- Cols, not empty(V)] of
-        [Who] -> Who;
-        Conds -> {'and', Conds}
-    end.
-
-allow(1)  -> allow;
-allow(0)  -> deny;
-allow(<<"1">>)  -> allow;
-allow(<<"0">>)  -> deny.
-
-access(1) -> subscribe;
-access(2) -> publish;
-access(3) -> pubsub;
-access(<<"1">>) -> subscribe;
-access(<<"2">>) -> publish;
-access(<<"3">>) -> pubsub.
-
-topic(<<"eq ", Topic/binary>>) ->
-    {eq, Topic};
-topic(Topic) ->
-    Topic.
-
-description() ->
-    "ACL with Mnesia".
-
-b2l(null) -> null;
-b2l(B)    -> binary_to_list(B).
-
-empty(null) -> true;
-empty("")   -> true;
-empty(<<>>) -> true;
-empty(_)    -> false.
+match_actions(_, <<"pubsub">>) -> true;
+match_actions(subscribe, <<"sub">>) -> true;
+match_actions(publish, <<"pub">>) -> true;
+match_actions(_, _) -> false.

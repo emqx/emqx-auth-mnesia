@@ -22,53 +22,55 @@
 -include_lib("emqx/include/logger.hrl").
 -include_lib("emqx/include/types.hrl").
 
--export([ register_metrics/0
+%% Auth callbacks
+-export([ init/1
+        , register_metrics/0
         , check/3
         , description/0
         ]).
 
--define(EMPTY(Username), (Username =:= undefined orelse Username =:= <<>>)).
+init(DefaultUsers) ->
+    ok = ekka_mnesia:create_table(emqx_user, [
+            {disc_copies, [node()]},
+            {attributes, record_info(fields, emqx_user)},
+            {storage_properties, [{ets, [{read_concurrency, true}]}]}]),
+    ok = lists:foreach(fun add_default_user/1, DefaultUsers),
+    ok = ekka_mnesia:copy_table(emqx_user, disc_copies).
+
+%% @private
+add_default_user({Login, Password, IsSuperuser}) ->
+    emqx_auth_mnesia_cli:add_user(iolist_to_binary(Login), iolist_to_binary(Password), IsSuperuser).
 
 -spec(register_metrics() -> ok).
 register_metrics() ->
     lists:foreach(fun emqx_metrics:new/1, ?AUTH_METRICS).
 
-check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType}) ->
-    CheckPass = case emqx_auth_mnesia_cli:query(ClientInfo) of
-        {ok, undefined} ->
-            {error, not_found};
-        {ok, User} ->
-            {check_pass({User#emqx_user.password, Password}, HashType), User};
-        {error, Reason} ->
-            ?LOG(error, "[Mnesia] query '~p' failed: ~p", [ClientInfo, Reason]),
-            {error, not_found}
-    end,
-    case CheckPass of
-        {ok, User1} ->
-            emqx_metrics:inc(?AUTH_METRICS(success)),
-            {stop, AuthResult#{is_superuser => is_superuser(User1),
-                                anonymous => false,
-                                auth_result => success}};
-        {error, not_found} ->
-            emqx_metrics:inc(?AUTH_METRICS(ignore)), ok;
-        {error, ResultCode} ->
-            ?LOG(error, "[Mnesia] Auth from mnesia failed: ~p", [ResultCode]),
-            emqx_metrics:inc(?AUTH_METRICS(failure)),
-            {stop, AuthResult#{auth_result => ResultCode, anonymous => false}}
+check(ClientInfo = #{password := Password}, AuthResult, #{hash_type := HashType, key_as := As}) ->
+    Login = maps:get(As, ClientInfo),
+    case emqx_auth_mnesia_cli:lookup_user(Login) of
+        [] -> 
+            emqx_metrics:inc(?AUTH_METRICS(ignore)),
+            ok;
+        [User] ->
+            case emqx_passwd:check_pass({User#emqx_user.password, Password}, HashType) of
+                ok -> 
+                    emqx_metrics:inc(?AUTH_METRICS(success)),
+                    {stop, AuthResult#{is_superuser => is_superuser(User),
+                                       anonymous => false,
+                                       auth_result => success}};
+                {error, Reason} -> 
+                    ?LOG(error, "[Mnesia] Auth from mnesia failed: ~p", [Reason]),
+                    emqx_metrics:inc(?AUTH_METRICS(failure)),
+                    {stop, AuthResult#{auth_result => password_error, anonymous => false}}
+            end
     end.
 
+description() -> "Authentication with Mnesia".
+
 %%--------------------------------------------------------------------
-%% Is Superuser?
+%% Internal functions
 %%--------------------------------------------------------------------
 is_superuser(#emqx_user{is_superuser = true}) ->
     true;
 is_superuser(_) ->
     false.
-
-check_pass(Password, HashType) ->
-    case emqx_passwd:check_pass(Password, HashType) of
-        ok -> ok;
-        {error, _Reason} -> {error, not_authorized}
-    end.
-
-description() -> "Authentication with Mnesia".
