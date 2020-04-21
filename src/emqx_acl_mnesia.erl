@@ -60,7 +60,7 @@ do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
         UserAcl ->
             case match(PubSub, Topic, UserAcl) of
                 allow -> {stop, allow};
-                nomatch -> {stop, deny}
+                _ -> {stop, deny}
             end;
         {error, Reason} ->
             ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
@@ -69,9 +69,12 @@ do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
 
 match(_PubSub, _Topic, []) ->
     nomatch;
-match(PubSub, Topic, [ #emqx_acl{topic = ACLTopic, action = Action} | UserAcl]) ->
+match(PubSub, Topic, [ #emqx_acl{topic = ACLTopic, action = Action, allow = Allow} | UserAcl]) ->
     case match_actions(PubSub, Action) andalso match_topic(Topic, ACLTopic) of
-        true -> allow;
+        true -> case Allow of
+                    true -> allow;
+                    _ -> deny
+                end;
         false -> match(PubSub, Topic, UserAcl)
     end.
 

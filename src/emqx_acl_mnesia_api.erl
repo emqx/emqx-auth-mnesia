@@ -20,7 +20,7 @@
 
 -import(proplists, [get_value/2]).
 
--import(minirest,  [return/0, return/1]).
+-import(minirest,  [return/1]).
 
 -rest_api(#{name   => list_emqx_acl,
             method => 'GET',
@@ -73,9 +73,10 @@ add_acl([ Params | ParamsN ], ReList ) ->
     Login = get_value(<<"login">>, Params),
     Topic = get_value(<<"topic">>, Params),
     Action = get_value(<<"action">>, Params),
-    Re = case validate([login, topic, action], [Login, Topic, Action]) of
+    Allow = get_value(<<"allow">>, Params),
+    Re = case validate([login, topic, action, allow], [Login, Topic, Action, Allow]) of
         ok -> 
-            emqx_auth_mnesia_cli:add_acl(Login, Topic, Action);
+            emqx_auth_mnesia_cli:add_acl(Login, Topic, Action, Allow);
         Err -> Err
     end,
     add_acl(ParamsN, [{Login, format_msg(Re)} | ReList]);   
@@ -90,20 +91,20 @@ delete(#{login := Login, topic := Topic}, _) ->
 %% Interval Funcs
 %%------------------------------------------------------------------------------
 
-format(#emqx_acl{login = Login, topic = Topic, action = Action}) ->
-    #{login => Login, topic => Topic, action => Action};
+format(#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow}) ->
+    #{login => Login, topic => Topic, action => Action, allow => Allow };
 
 format([]) ->
     #{};
 
-format([{emqx_acl, Login, Topic, Action}]) ->
-    #{login => Login, topic => Topic, action => Action};
+format([#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow}]) ->
+    format(#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow});
 
-format([ #emqx_acl{login = _Key, topic = _Topic, action = _Action}| _] = List) ->
+format([ #emqx_acl{login = _Key, topic = _Topic, action = _Action, allow = _Allow}| _] = List) ->
     format(List, []).
     
-format([#emqx_acl{login = Login, topic = Topic, action = Action} | List], ReList) ->
-    format(List, [ format(#emqx_acl{login = Login, topic = Topic, action = Action}) | ReList]);
+format([#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow} | List], ReList) ->
+    format(List, [ format(#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow}) | ReList]);
 format([], ReList) -> ReList.
 
 validate([], []) ->
@@ -122,6 +123,11 @@ do_validation(topic, V) when is_binary(V)
     true;
 do_validation(action, V) when is_binary(V) ->
     case V =:= <<"pub">> orelse V =:= <<"sub">> orelse V =:= <<"pubsub">> of
+        true -> true;
+        false -> false
+    end;
+do_validation(allow, V) when is_atom(V) ->
+    case V =:= false orelse V =:= true of
         true -> true;
         false -> false
     end;

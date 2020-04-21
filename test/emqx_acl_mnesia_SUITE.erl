@@ -77,16 +77,16 @@ t_management(_Config) ->
     clean_all_acls(),
     ?assertEqual([], emqx_auth_mnesia_cli:all_acls()),
 
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>),
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>),
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/C">>, <<"pubsub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>, true),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>, true),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/C">>, <<"pubsub">>, true),
     
-    ?assertEqual([{emqx_acl,<<"test_username">>,<<"Topic/A">>,<<"sub">>},
-                  {emqx_acl,<<"test_username">>,<<"Topic/B">>,<<"pub">>},
-                  {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>}],emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)),
+    ?assertEqual([{emqx_acl,<<"test_username">>,<<"Topic/A">>,<<"sub">>, true},
+                  {emqx_acl,<<"test_username">>,<<"Topic/B">>,<<"pub">>, true},
+                  {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>, true}],emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)),
     ok = emqx_auth_mnesia_cli:remove_acl(<<"test_username">>, <<"Topic/A">>),
-    ?assertEqual([{emqx_acl,<<"test_username">>,<<"Topic/B">>,<<"pub">>},
-                  {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>}], emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)).
+    ?assertEqual([{emqx_acl,<<"test_username">>,<<"Topic/B">>,<<"pub">>, true},
+                  {emqx_acl,<<"test_username">>,<<"Topic/C">>,<<"pubsub">>, true}], emqx_auth_mnesia_cli:lookup_acl(<<"test_username">>)).
 
 t_check_acl_as_username(_Config) ->
     clean_all_acls(),
@@ -95,16 +95,16 @@ t_check_acl_as_username(_Config) ->
     User1 = #{zone => external, username => <<"test_username">>},
     User2 = #{zone => external, username => <<"no_exist">>},
 
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>),
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>),
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A/B">>, <<"pubsub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>, true),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>, true),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A/B">>, <<"pubsub">>, false),
    
     allow = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A">>),
     deny  = emqx_access_control:check_acl(User1, subscribe, <<"Topic/B">>),
-    allow = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A/B">>),
+    deny  = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A/B">>),
     deny  = emqx_access_control:check_acl(User1, publish,   <<"Topic/A">>),
     allow = emqx_access_control:check_acl(User1, publish,   <<"Topic/B">>),
-    allow = emqx_access_control:check_acl(User1, publish,   <<"Topic/A/B">>),
+    deny  = emqx_access_control:check_acl(User1, publish,   <<"Topic/A/B">>),
 
     allow = emqx_access_control:check_acl(User2, subscribe, <<"Topic/C">>),
     allow = emqx_access_control:check_acl(User2, publish,   <<"Topic/D">>).
@@ -116,12 +116,12 @@ t_check_acl_as_clientid(_) ->
     User1 = #{zone => external, clientid => <<"test_clientid">>},
     User2 = #{zone => external, clientid => <<"no_exist">>},
 
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"#">>, <<"sub">>),
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"+/A">>, <<"pub">>),
-    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"Topic/A/B">>, <<"pubsub">>),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"#">>, <<"sub">>, false),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"+/A">>, <<"pub">>, false),
+    ok = emqx_auth_mnesia_cli:add_acl(<<"test_clientid">>, <<"Topic/A/B">>, <<"pubsub">>, true),
 
-    allow = emqx_access_control:check_acl(User1, subscribe, <<"Any">>),
-    allow = emqx_access_control:check_acl(User1, publish, <<"Any/A">>),
+    deny  = emqx_access_control:check_acl(User1, subscribe, <<"Any">>),
+    deny  = emqx_access_control:check_acl(User1, publish, <<"Any/A">>),
     deny  = emqx_access_control:check_acl(User1, publish, <<"Any/C">>),
     allow = emqx_access_control:check_acl(User1, publish, <<"Topic/A/B">>),
 
@@ -134,15 +134,15 @@ t_rest_api(_Config) ->
     {ok, Result} = request_http_rest_list(),
     [] = get_http_data(Result),
 
-    Params = #{<<"login">> => <<"test_username">>, <<"topic">> => <<"Topic/A">>, <<"action">> => <<"pubsub">>},
+    Params = #{<<"login">> => <<"test_username">>, <<"topic">> => <<"Topic/A">>, <<"action">> => <<"pubsub">>, <<"allow">> => true},
     {ok, _} = request_http_rest_add(Params),
     {ok, Result1} = request_http_rest_lookup(<<"test_username">>),
-    #{<<"login">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>} = get_http_data(Result1),
+    #{<<"login">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>, <<"allow">> := true} = get_http_data(Result1),
 
     Params1 = [
-                #{<<"login">> => <<"test_username">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"pub">>},
-                #{<<"login">> => <<"test_username_1">>, <<"topic">> => <<"#">>, <<"action">> => <<"sub">>},
-                #{<<"login">> => <<"test_username_2">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"error_format">>}
+                #{<<"login">> => <<"test_username">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"pub">>, <<"allow">> => true},
+                #{<<"login">> => <<"test_username_1">>, <<"topic">> => <<"#">>, <<"action">> => <<"sub">>, <<"allow">> => true},
+                #{<<"login">> => <<"test_username_2">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"error_format">>, <<"allow">> => true}
                 ],
     {ok, Result2} = request_http_rest_add(Params1),
     #{
@@ -152,8 +152,8 @@ t_rest_api(_Config) ->
         } = get_http_data(Result2),
 
     {ok, Result3} = request_http_rest_lookup(<<"test_username">>),
-    [#{<<"login">> := <<"test_username">>, <<"topic">> := <<"+/A">>, <<"action">> := <<"pub">>},
-     #{<<"login">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>}]
+    [#{<<"login">> := <<"test_username">>, <<"topic">> := <<"+/A">>, <<"action">> := <<"pub">>, <<"allow">> := true},
+     #{<<"login">> := <<"test_username">>, <<"topic">> := <<"Topic/A">>, <<"action">> := <<"pubsub">>, <<"allow">> := true}]
      = get_http_data(Result3),
 
     {ok, _} = request_http_rest_delete(<<"test_username">>, <<"+/A">>),
