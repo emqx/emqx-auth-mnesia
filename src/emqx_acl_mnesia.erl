@@ -60,7 +60,8 @@ do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
         UserAcl ->
             case match(PubSub, Topic, UserAcl) of
                 allow -> {stop, allow};
-                _ -> {stop, deny}
+                deny -> {stop, deny};
+                _ -> ok
             end;
         {error, Reason} ->
             ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
