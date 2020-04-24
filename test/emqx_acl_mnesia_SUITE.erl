@@ -100,9 +100,9 @@ t_check_acl_as_username(_Config) ->
     ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A/B">>, <<"pubsub">>, false),
    
     allow = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A">>),
-    deny  = emqx_access_control:check_acl(User1, subscribe, <<"Topic/B">>),
+    allow = emqx_access_control:check_acl(User1, subscribe, <<"Topic/B">>),
     deny  = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A/B">>),
-    deny  = emqx_access_control:check_acl(User1, publish,   <<"Topic/A">>),
+    allow = emqx_access_control:check_acl(User1, publish,   <<"Topic/A">>),
     allow = emqx_access_control:check_acl(User1, publish,   <<"Topic/B">>),
     deny  = emqx_access_control:check_acl(User1, publish,   <<"Topic/A/B">>),
 
@@ -122,7 +122,7 @@ t_check_acl_as_clientid(_) ->
 
     deny  = emqx_access_control:check_acl(User1, subscribe, <<"Any">>),
     deny  = emqx_access_control:check_acl(User1, publish, <<"Any/A">>),
-    deny  = emqx_access_control:check_acl(User1, publish, <<"Any/C">>),
+    allow  = emqx_access_control:check_acl(User1, publish, <<"Any/C">>),
     allow = emqx_access_control:check_acl(User1, publish, <<"Topic/A/B">>),
 
     allow = emqx_access_control:check_acl(User2, subscribe, <<"Topic/C">>),
@@ -141,14 +141,14 @@ t_rest_api(_Config) ->
 
     Params1 = [
                 #{<<"login">> => <<"test_username">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"pub">>, <<"allow">> => true},
-                #{<<"login">> => <<"test_username_1">>, <<"topic">> => <<"#">>, <<"action">> => <<"sub">>, <<"allow">> => true},
-                #{<<"login">> => <<"test_username_2">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"error_format">>, <<"allow">> => true}
+                #{<<"login">> => <<"test_username/1">>, <<"topic">> => <<"#">>, <<"action">> => <<"sub">>, <<"allow">> => true},
+                #{<<"login">> => <<"test_username/2">>, <<"topic">> => <<"+/A">>, <<"action">> => <<"error_format">>, <<"allow">> => true}
                 ],
     {ok, Result2} = request_http_rest_add(Params1),
     #{
         <<"test_username">> := <<"ok">>,
-        <<"test_username_1">> := <<"ok">>,
-        <<"test_username_2">> := <<"{error,action}">>
+        <<"test_username/1">> := <<"ok">>,
+        <<"test_username/2">> := <<"{error,action}">>
         } = get_http_data(Result2),
 
     {ok, Result3} = request_http_rest_lookup(<<"test_username">>),
@@ -158,7 +158,7 @@ t_rest_api(_Config) ->
 
     {ok, _} = request_http_rest_delete(<<"test_username">>, <<"+/A">>),
     {ok, _} = request_http_rest_delete(<<"test_username">>, <<"Topic/A">>),
-    {ok, _} = request_http_rest_delete(<<"test_username_1">>, <<"#">>),
+    {ok, _} = request_http_rest_delete(<<"test_username/1">>, <<"#">>),
     {ok, Result4} = request_http_rest_list(),
     [] = get_http_data(Result4).
 

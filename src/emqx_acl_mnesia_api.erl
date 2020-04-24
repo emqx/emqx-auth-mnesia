@@ -60,7 +60,7 @@ list(_Bindings, Params) ->
     return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, Params, fun format/1)}).
 
 lookup(#{login := Login}, _Params) ->
-    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(Login))}).
+    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(http_uri:decode(Login)))}).
 
 add(_Bindings, Params) ->
     [ P | _] = Params,
@@ -70,9 +70,9 @@ add(_Bindings, Params) ->
     end.
 
 add_acl([ Params | ParamsN ], ReList ) ->
-    Login = get_value(<<"login">>, Params),
-    Topic = get_value(<<"topic">>, Params),
-    Action = get_value(<<"action">>, Params),
+    Login = http_uri:decode(get_value(<<"login">>, Params)),
+    Topic = http_uri:decode(get_value(<<"topic">>, Params)),
+    Action = http_uri:decode(get_value(<<"action">>, Params)),
     Allow = get_value(<<"allow">>, Params),
     Re = case validate([login, topic, action, allow], [Login, Topic, Action, Allow]) of
         ok -> 
@@ -85,7 +85,7 @@ add_acl([], ReList) ->
     {ok, ReList}.
 
 delete(#{login := Login, topic := Topic}, _) ->
-    return(emqx_auth_mnesia_cli:remove_acl(Login, http_uri:decode(Topic))).
+    return(emqx_auth_mnesia_cli:remove_acl(http_uri:decode(Login), http_uri:decode(Topic))).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs
