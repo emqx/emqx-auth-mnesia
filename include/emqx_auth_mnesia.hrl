@@ -9,7 +9,8 @@
 -record(emqx_acl, {
         login,
         topic,
-        action
+        action,
+        allow
     }).
 
 -record(auth_metrics, {
