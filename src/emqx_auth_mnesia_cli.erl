@@ -26,7 +26,7 @@
         , all_users/0
         ]).
 %% Acl APIs
--export([ add_acl/3
+-export([ add_acl/4
         , remove_acl/2
         , lookup_acl/1
         , all_acls/0
@@ -80,9 +80,9 @@ all_users() -> mnesia:dirty_all_keys(emqx_user).
 %%--------------------------------------------------------------------
 
 %% @doc Add Acls
--spec(add_acl(binary(), binary(), binary()) -> ok | {error, any()}).
-add_acl(Login, Topic, Action) ->
-    Acls = #emqx_acl{login = Login, topic = Topic, action = Action},
+-spec(add_acl(binary(), binary(), binary(), atom()) -> ok | {error, any()}).
+add_acl(Login, Topic, Action, Allow) ->
+    Acls = #emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow},
     ret(mnesia:transaction(fun mnesia:write/1, [Acls])).
 
 %% @doc Lookup acl by login
@@ -94,7 +94,7 @@ lookup_acl(Login) ->
 %% @doc Remove acl
 -spec(remove_acl(binary(), binary()) -> ok | {error, any()}).
 remove_acl(Login, Topic) ->
-    [ mnesia:dirty_delete_object(emqx_acl, #emqx_acl{login = Login, topic = Topic, action = Action}) || Action <- ets:select(emqx_acl, [{{emqx_acl, Login, Topic,'$1'}, [], ['$1']}])],
+    [ ok = mnesia:dirty_delete_object(emqx_acl, #emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow})  || [Action, Allow] <- ets:select(emqx_acl, [{{emqx_acl, Login, Topic,'$1','$2'}, [], ['$$']}])],
     ok.
 
 
