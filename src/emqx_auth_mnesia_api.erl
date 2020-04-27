@@ -179,11 +179,8 @@ do_validation(login, V) when is_binary(V)
 do_validation(password, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-do_validation(is_superuser, V) when is_atom(V) ->
-    case V =:= false orelse V =:= true of
-        true -> true;
-        false -> false
-    end;
+do_validation(is_superuser, V) when is_boolean(V) ->
+    true;
 do_validation(_, _) ->
     false.
 

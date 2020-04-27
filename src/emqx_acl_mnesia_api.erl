@@ -126,11 +126,8 @@ do_validation(action, V) when is_binary(V) ->
         true -> true;
         false -> false
     end;
-do_validation(allow, V) when is_atom(V) ->
-    case V =:= false orelse V =:= true of
-        true -> true;
-        false -> false
-    end;
+do_validation(allow, V) when is_boolean(V) ->
+    true;
 do_validation(_, _) ->
     false.
 
