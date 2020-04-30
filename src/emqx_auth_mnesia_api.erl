@@ -70,7 +70,7 @@ list(_Bindings, Params) ->
     return({ok, paginate(emqx_user, Params, fun format/1)}).
 
 lookup(#{login := Login}, _Params) ->
-    return({ok, format(emqx_auth_mnesia_cli:lookup_user(Login))}).
+    return({ok, format(emqx_auth_mnesia_cli:lookup_user(http_uri:decode(Login)))}).
 
 add(_Bindings, Params) ->
     [ P | _] = Params,
@@ -80,8 +80,8 @@ add(_Bindings, Params) ->
     end.
 
 add_user([ Params | ParamsN ], ReList ) ->
-    Login = get_value(<<"login">>, Params),
-    Password = get_value(<<"password">>, Params),
+    Login = http_uri:decode(get_value(<<"login">>, Params)),
+    Password = http_uri:decode(get_value(<<"password">>, Params)),
     IsSuperuser = get_value(<<"is_superuser">>, Params),
     Re = case validate([login, password, is_superuser], [Login, Password, IsSuperuser]) of
         ok -> 
@@ -97,12 +97,12 @@ update(#{login := Login}, Params) ->
     Password = get_value(<<"password">>, Params),
     IsSuperuser = get_value(<<"is_superuser">>, Params),
     case validate([password, is_superuser], [Password, IsSuperuser]) of
-        ok -> return(emqx_auth_mnesia_cli:update_user(Login, Password, IsSuperuser));
+        ok -> return(emqx_auth_mnesia_cli:update_user(http_uri:decode(Login), http_uri:decode(Password), IsSuperuser));
         Err -> return(Err)
     end.
 
 delete(#{login := Login}, _) ->
-    return(emqx_auth_mnesia_cli:remove_user(Login)).
+    return(emqx_auth_mnesia_cli:remove_user(http_uri:decode(Login))).
 
 %%------------------------------------------------------------------------------
 %% Paging Query
@@ -179,11 +179,8 @@ do_validation(login, V) when is_binary(V)
 do_validation(password, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
-do_validation(is_superuser, V) when is_atom(V) ->
-    case V =:= false orelse V =:= true of
-        true -> true;
-        false -> false
-    end;
+do_validation(is_superuser, V) when is_boolean(V) ->
+    true;
 do_validation(_, _) ->
     false.
 

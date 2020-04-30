@@ -146,14 +146,14 @@ t_rest_api(_Config) ->
 
     Params1 = [
                 #{<<"login">> => <<"test_username">>, <<"password">> => <<"password">>, <<"is_superuser">> => true},
-                #{<<"login">> => <<"test_username_1">>, <<"password">> => <<"password">>, <<"is_superuser">> => error_format},
-                #{<<"login">> => <<"test_username_2">>, <<"password">> => <<"password">>, <<"is_superuser">> => true}
+                #{<<"login">> => <<"test_username/1">>, <<"password">> => <<"password">>, <<"is_superuser">> => error_format},
+                #{<<"login">> => <<"test_username/2">>, <<"password">> => <<"password">>, <<"is_superuser">> => true}
                 ],
     {ok, Result2} = request_http_rest_add(Params1),
     #{
         <<"test_username">> := <<"{error,existed}">>,
-        <<"test_username_1">> := <<"{error,is_superuser}">>,
-        <<"test_username_2">> := <<"ok">>
+        <<"test_username/1">> := <<"{error,is_superuser}">>,
+        <<"test_username/2">> := <<"ok">>
         } = get_http_data(Result2),
 
     {ok, Result3} = request_http_rest_lookup(<<"test_username">>),
