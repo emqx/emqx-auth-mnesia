@@ -57,15 +57,15 @@ description() -> "Acl with Mnesia".
 do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
     case emqx_auth_mnesia_cli:lookup_acl(Login) of
         [] -> ok;
+        {error, Reason} ->
+            ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
+            ok;
         UserAcl ->
             case match(PubSub, Topic, UserAcl) of
                 allow -> {stop, allow};
                 deny -> {stop, deny};
                 _ -> ok
-            end;
-        {error, Reason} ->
-            ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
-            ok
+            end
     end.
 
 match(_PubSub, _Topic, []) ->
