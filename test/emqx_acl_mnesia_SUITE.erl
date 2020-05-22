@@ -103,7 +103,7 @@ t_management(_Config) ->
 
 t_check_acl_as_clientid(_) ->
     clean_all_acls(),
-    emqx_modules:load_module(emqx_mod_acl_internal, false),
+    emqx_mod_acl_internal:load([]),
 
     User1 = #{zone => external, clientid => <<"test_clientid">>},
     User2 = #{zone => external, clientid => <<"no_exist">>},
@@ -122,7 +122,7 @@ t_check_acl_as_clientid(_) ->
 
 t_check_acl_as_username(_Config) ->
     clean_all_acls(),
-    emqx_modules:load_module(emqx_mod_acl_internal, false),
+    emqx_mod_acl_internal:load([]),
     
     User1 = #{zone => external, username => <<"test_username">>},
     User2 = #{zone => external, username => <<"no_exist">>},
@@ -143,7 +143,7 @@ t_check_acl_as_username(_Config) ->
 
 t_check_acl_as_all(_) ->
     clean_all_acls(),
-    emqx_modules:load_module(emqx_mod_acl_internal, false),
+    emqx_mod_acl_internal:load([]),
 
     ok = emqx_auth_mnesia_cli:add_acl(<<"$all">>, <<"Topic/A">>, <<"sub">>, false),
     ok = emqx_auth_mnesia_cli:add_acl(<<"$all">>, <<"Topic/B">>, <<"pub">>, false),
