@@ -17,6 +17,7 @@
 -module(emqx_auth_mnesia_cli).
 
 -include("emqx_auth_mnesia.hrl").
+-include_lib("emqx/include/logger.hrl").
 
 %% Auth APIs
 -export([ add_user/3
@@ -64,7 +65,12 @@ do_update_user(User = #emqx_user{login = Login}) ->
 -spec(lookup_user(binary()) -> list()).
 lookup_user(undefined) -> [];
 lookup_user(Login) ->
-    mnesia:dirty_read(emqx_user, Login).
+    case mnesia:dirty_read(emqx_user, Login) of
+        {error, Reason} ->
+            ?LOG(error, "[Mnesia] do_check_user error: ~p~n", [Reason]),
+            [];
+        Re -> Re
+    end.
 
 %% @doc Remove user
 -spec(remove_user(binary()) -> ok | {error, any()}).
@@ -89,7 +95,12 @@ add_acl(Login, Topic, Action, Allow) ->
 -spec(lookup_acl(binary()) -> list()).
 lookup_acl(undefined) -> [];
 lookup_acl(Login) ->
-    mnesia:dirty_read(emqx_acl, Login).
+    case mnesia:dirty_read(emqx_acl, Login) of
+        {error, Reason} ->
+            ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
+            [];
+        Re -> Re
+    end.
 
 %% @doc Remove acl
 -spec(remove_acl(binary(), binary()) -> ok | {error, any()}).

@@ -18,9 +18,6 @@
 
 -include("emqx_auth_mnesia.hrl").
 
--include_lib("emqx/include/emqx.hrl").
--include_lib("emqx/include/logger.hrl").
-
 %% ACL Callbacks
 -export([ init/0
         , register_metrics/0
@@ -55,13 +52,11 @@ description() -> "Acl with Mnesia".
 %%-------------------------------------------------------------------
 
 do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
-    case emqx_auth_mnesia_cli:lookup_acl(Login) of
-        [] -> ok;
-        {error, Reason} ->
-            ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
-            ok;
-        UserAcl ->
-            case match(PubSub, Topic, UserAcl) of
+    case match(PubSub, Topic, emqx_auth_mnesia_cli:lookup_acl(Login)) of
+        allow -> {stop, allow};
+        deny -> {stop, deny};
+        _ ->
+            case match(PubSub, Topic,  emqx_auth_mnesia_cli:lookup_acl(<<"$all">>)) of
                 allow -> {stop, allow};
                 deny -> {stop, deny};
                 _ -> ok
