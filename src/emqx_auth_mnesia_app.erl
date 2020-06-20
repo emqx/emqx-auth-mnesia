@@ -34,6 +34,7 @@
 
 start(_StartType, _StartArgs) ->
     {ok, Sup} = emqx_auth_mnesia_sup:start_link(),
+    emqx_ctl:register_command(authmnesia, {emqx_auth_mnesia_cli, cli}, []),
     load_auth_hook(),
     load_acl_hook(),
     {ok, Sup}.
@@ -41,6 +42,7 @@ start(_StartType, _StartArgs) ->
 prep_stop(State) ->
     emqx:unhook('client.authenticate', fun emqx_auth_mnesia:check/3),
     emqx:unhook('client.check_acl', fun emqx_acl_mnesia:check_acl/5),
+    emqx_ctl:unregister_command(authmnesia),
     State.
 
 stop(_State) ->
