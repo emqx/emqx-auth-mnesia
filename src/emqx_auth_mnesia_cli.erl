@@ -143,41 +143,68 @@ hint() ->
     emqx_ctl:print("Please run './bin/emqx_ctl plugins load emqx_auth_mnesia' first.~n").
 
 %% User
-cli(["adduser", Login, Password, IsSuper]) ->
+cli(["users", "add", Login, Password, IsSuper]) ->
     if_enabled(fun() -> Ok = add_user(Login, Password, IsSuper), emqx_ctl:print("~p~n", [Ok]) end);
 
-cli(["updateuser", Login, NewPassword, IsSuperuser]) ->
+cli(["users", "update", Login, NewPassword, IsSuperuser]) ->
     if_enabled(fun() -> Ok = update_user(Login, NewPassword, IsSuperuser), emqx_ctl:print("~p~n", [Ok]) end);
 
-cli(["deluser", Login]) ->
+cli(["users", "del", Login]) ->
     if_enabled(fun() -> Ok = remove_user(Login), emqx_ctl:print("~p~n", [Ok]) end);
 
-cli(["lookupuser",P]) ->
-    if_enabled(fun() -> Ok = lookup_user(P), emqx_ctl:print("~p~n", [Ok]) end);
+cli(["users", "get", P]) ->
+    if_enabled(fun() -> 
+        Result = lookup_user(P),
+        F = fun(E) -> 
+            {_, Login, Pwd, Super} = E,
+            emqx_ctl:print("User(login = ~p password = ~p is_super = ~p)~n",[Login, Pwd, Super])
+        end, 
+        lists:foreach(F, Result)
+    end);
 
-cli(["allusers"]) ->
-    if_enabled(fun() -> Ok = all_users(), emqx_ctl:print("~p~n", [Ok]) end);
-
+cli(["users", "list"]) ->
+    if_enabled(fun() -> 
+        Result = all_users(),
+        F = fun(E) -> 
+            emqx_ctl:print("User(login = ~p)~n",[E])
+        end,
+        lists:foreach(F, Result)
+    end);
 %% Acl
-cli(["addacl", Login, Topic, Action, Allow]) ->
-    if_enabled(fun() ->Ok = add_acl(Login, Topic, Action, Allow), emqx_ctl:print("~p~n", [Ok]) end);
+cli(["acls", "add", Login, Topic, Action, Allow]) ->
+    if_enabled(fun() ->
+        Ok = add_acl(Login, Topic, Action, Allow), 
+        emqx_ctl:print("~p~n", [Ok]) 
+    end);
 
-cli(["delacl", Login, Topic])->
+cli(["acls", "del", Login, Topic])->
     if_enabled(fun() -> Ok = remove_acl(Login, Topic), emqx_ctl:print("~p~n", [Ok]) end);
 
-cli(["lookupacl",P]) ->
-    if_enabled(fun() -> Ok = lookup_acl(P), emqx_ctl:print("~p~n", [Ok]) end);
+cli(["acls", "get", P]) ->
+    if_enabled(fun() -> 
+        Result = lookup_acl(P), 
+        F = fun(E) -> 
+            {_, Login, Topic, Action, Allow} = E,
+            emqx_ctl:print("Acl(login = ~p topic = ~p action = ~p allow = ~p)~n",[Login, Topic, Action, Allow])
+        end, 
+        lists:foreach(F, Result)
+    end);
 
-cli(["allacls"]) ->
-    if_enabled(fun() -> Ok = all_acls(), emqx_ctl:print("~p~n", [Ok]) end);
+cli(["acls", "list"]) ->
+    if_enabled(fun() -> 
+        Result = all_acls(),
+        F = fun(E) -> 
+            emqx_ctl:print("Acl(login = ~p)~n",[E])
+        end,
+        lists:foreach(F, Result)
+    end);
 
 cli(_) ->
-    emqx_ctl:usage([{"authmnesia adduser <Login> <Password> <IsSuper>", "Add User"},
-                    {"authmnesia updateuser <Login> <NewPassword> <IsSuper>", "Update User"},
-                    {"authmnesia deluser <Login>", "Delete User"},
-                    {"authmnesia lookupuser <Login>", "Lookup User"},
-                    {"authmnesia allusers", "All User"},
-                    {"authmnesia addacl <Login> <Topic> <Action> <Allow>", "Add Acl"},
-                    {"authmnesia delacl <Login> <Topic>", "Delete Acl"},
-                    {"authmnesia lookupacl <Login>", "Lookup Acl"},
-                    {"authmnesia allacls ","All acls"}]).
+    emqx_ctl:usage([{"authmnesia users add <Login> <Password> <IsSuper>", "Add User"},
+                    {"authmnesia users update <Login> <NewPassword> <IsSuper>", "Update User"},
+                    {"authmnesia users delete <Login>", "Delete User"},
+                    {"authmnesia users get <Login>", "Lookup User Detail"},
+                    {"authmnesia users list", "List All Users"},
+                    {"authmnesia acls add <Login> <Topic> <Action> <Allow>", "Add Acl"},
+                    {"authmnesia acls get <Login>", "Lookup Acl Detail"},
+                    {"authmnesia acls list","List All Acls"}]).
