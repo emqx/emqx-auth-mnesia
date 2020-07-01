@@ -28,7 +28,7 @@ MATCH_BRANCH = fun (BranchName) ->
                    _ -> case re:run(BranchName, "^[v]?[0-9]\.[0-9]\.([0-9]|(rc|beta|alpha)\.[0-9])", [{capture, none}]) of
                           match -> BranchName;
                           _ ->
-                            [RefLog | _] = string:tokens(os:cmd("git reflog show | grep -o \"moving from .* to $(git branch | grep -e '^*' | cut -d' ' -f 2)\""), "\n"),
+                            [RefLog | _] = string:tokens(os:cmd("git reflog show | grep -o \"checkout: moving from .* to $(git branch | grep -e '^*' | cut -d' ' -f 2)\""), "\n"),
                             lists:nth(3,  string:tokens(RefLog, " "))
                         end
                  end

@@ -11,6 +11,8 @@ jobs:
             
         steps:
             - uses: actions/checkout@v1
+            - name: get reflog
+              run: git reflog show
             - name: run test cases
               run: |
                 make xref
