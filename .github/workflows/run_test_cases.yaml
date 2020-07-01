@@ -11,6 +11,8 @@ jobs:
             
         steps:
             - uses: actions/checkout@v2
+              with:
+                fetch-depth: 0
             - name: get reflog
               run: git reflog show
             - name: run test cases
