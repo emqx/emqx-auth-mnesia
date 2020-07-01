@@ -10,7 +10,7 @@ jobs:
             image: erlang:22.1
             
         steps:
-            - uses: actions/checkout@v1
+            - uses: actions/checkout@v2
             - name: get reflog
               run: git reflog show
             - name: run test cases
