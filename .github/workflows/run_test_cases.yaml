@@ -14,7 +14,9 @@ jobs:
               with:
                 fetch-depth: 0
             - name: get reflog
-              run: git reflog show
+              run: |
+                env
+                git reflog show
             - name: run test cases
               run: |
                 make xref
