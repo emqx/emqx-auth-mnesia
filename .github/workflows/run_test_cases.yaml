@@ -16,6 +16,7 @@ jobs:
             - name: get reflog
               run: |
                 env
+                git init
                 git show $GITHUB_SHA
                 git reflog show
             - name: run test cases
