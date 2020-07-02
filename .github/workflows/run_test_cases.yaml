@@ -14,7 +14,7 @@ jobs:
             - name: get reflog
               run: |
                 env
-                git init
+                git tag -l "v*" --points-at  $( git show $(git describe --tags |  grep -oE "[ev0-9]+\.[0-9]+(\.[0-9]+)?(-alpha|-beta|-rc)?\.[0-9]") --notes |grep commit |awk '{print $2}' )
                 git show $GITHUB_SHA
                 git reflog show
             - name: run test cases
