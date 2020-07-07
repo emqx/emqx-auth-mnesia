@@ -24,3 +24,4 @@ erlang.mk
 .*.swp
 .rebar3/
 etc/emqx_auth_mnesia.conf.rendered
+.vscode
