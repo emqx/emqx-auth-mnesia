@@ -211,6 +211,17 @@ t_rest_api(_Config) ->
     {ok, Result5} = request_http_rest_list(),
     [] = get_http_data(Result5).
 
+t_cli(_) ->
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["users", "add", "TestUser", "Password", 1])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["users", "update", "TestUser", "PasswordNew", 1])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["users", "del", "TestUser"])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["users", "get", "TestUser"])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["users", "list"])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["acls", "add", "TestUser", "Topic/1", "2", "1"])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["acls", "del", "TestUser"])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["acls", "get", "TestUser"])),
+    ?assertEqual(ok, emqx_auth_mnesia_cli:cli(["acls", "list"])).
+
 %%------------------------------------------------------------------------------
 %% Helpers
 %%------------------------------------------------------------------------------
