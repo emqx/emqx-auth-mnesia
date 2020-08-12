@@ -70,7 +70,7 @@ list(_Bindings, Params) ->
     return({ok, paginate(emqx_user, Params, fun format/1)}).
 
 lookup(#{login := Login}, _Params) ->
-    return({ok, format(emqx_auth_mnesia_cli:lookup_user(http_uri:decode(Login)))}).
+    return({ok, format(emqx_auth_mnesia_cli:lookup_user(urldecode(Login)))}).
 
 add(_Bindings, Params) ->
     [ P | _] = Params,
@@ -80,8 +80,8 @@ add(_Bindings, Params) ->
     end.
 
 add_user([ Params | ParamsN ], ReList ) ->
-    Login = http_uri:decode(get_value(<<"login">>, Params)),
-    Password = http_uri:decode(get_value(<<"password">>, Params)),
+    Login = urldecode(get_value(<<"login">>, Params)),
+    Password = urldecode(get_value(<<"password">>, Params)),
     IsSuperuser = get_value(<<"is_superuser">>, Params),
     Re = case validate([login, password, is_superuser], [Login, Password, IsSuperuser]) of
         ok -> 
@@ -97,12 +97,12 @@ update(#{login := Login}, Params) ->
     Password = get_value(<<"password">>, Params),
     IsSuperuser = get_value(<<"is_superuser">>, Params),
     case validate([password, is_superuser], [Password, IsSuperuser]) of
-        ok -> return(emqx_auth_mnesia_cli:update_user(http_uri:decode(Login), http_uri:decode(Password), IsSuperuser));
+        ok -> return(emqx_auth_mnesia_cli:update_user(urldecode(Login), urldecode(Password), IsSuperuser));
         Err -> return(Err)
     end.
 
 delete(#{login := Login}, _) ->
-    return(emqx_auth_mnesia_cli:remove_user(http_uri:decode(Login))).
+    return(emqx_auth_mnesia_cli:remove_user(urldecode(Login))).
 
 %%------------------------------------------------------------------------------
 %% Paging Query
@@ -190,3 +190,12 @@ format_msg(Message)
 
 format_msg(Message) when is_tuple(Message) ->
     iolist_to_binary(io_lib:format("~p", [Message])).
+
+-if(?OTP_RELEASE >= 23).
+urldecode(S) ->
+    [{R, _}] = uri_string:dissect_query(S), R.
+-else.
+urldecode(S) ->
+    http_uri:decode(S).
+-endif.
+

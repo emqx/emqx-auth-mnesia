@@ -60,7 +60,7 @@ list(_Bindings, Params) ->
     return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, Params, fun format/1)}).
 
 lookup(#{login := Login}, _Params) ->
-    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(http_uri:decode(Login)))}).
+    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(urldecode(Login)))}).
 
 add(_Bindings, Params) ->
     [ P | _] = Params,
@@ -70,9 +70,9 @@ add(_Bindings, Params) ->
     end.
 
 add_acl([ Params | ParamsN ], ReList ) ->
-    Login = http_uri:decode(get_value(<<"login">>, Params)),
-    Topic = http_uri:decode(get_value(<<"topic">>, Params)),
-    Action = http_uri:decode(get_value(<<"action">>, Params)),
+    Login = urldecode(get_value(<<"login">>, Params)),
+    Topic = urldecode(get_value(<<"topic">>, Params)),
+    Action = urldecode(get_value(<<"action">>, Params)),
     Allow = get_value(<<"allow">>, Params),
     Re = case validate([login, topic, action, allow], [Login, Topic, Action, Allow]) of
         ok -> 
@@ -85,7 +85,7 @@ add_acl([], ReList) ->
     {ok, ReList}.
 
 delete(#{login := Login, topic := Topic}, _) ->
-    return(emqx_auth_mnesia_cli:remove_acl(http_uri:decode(Login), http_uri:decode(Topic))).
+    return(emqx_auth_mnesia_cli:remove_acl(urldecode(Login), urldecode(Topic))).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs
@@ -137,3 +137,12 @@ format_msg(Message)
 
 format_msg(Message) when is_tuple(Message) ->
     iolist_to_binary(io_lib:format("~p", [Message])).
+
+-if(?OTP_RELEASE >= 23).
+urldecode(S) ->
+    [{R, _}] = uri_string:dissect_query(S), R.
+-else.
+urldecode(S) ->
+    http_uri:decode(S).
+-endif.
+
