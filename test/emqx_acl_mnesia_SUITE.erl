@@ -238,7 +238,7 @@ request_http_rest_delete(Login, Topic) ->
 uri() -> uri([]).
 uri(Parts) when is_list(Parts) ->
     NParts = [b2l(E) || E <- Parts],
-    ?HOST ++ filename:join([?BASE_PATH, ?API_VERSION, "emqx_acl"| NParts]).
+    ?HOST ++ filename:join([?BASE_PATH, ?API_VERSION, "mqtt_acl"| NParts]).
 
 %% @private
 b2l(B) when is_binary(B) ->
