@@ -24,28 +24,28 @@
 
 -rest_api(#{name   => list_emqx_acl,
             method => 'GET',
-            path   => "/emqx_acl",
+            path   => "/mqtt_acl",
             func   => list,
             descr  => "List available mnesia in the cluster"
            }).
 
 -rest_api(#{name   => lookup_emqx_acl,
             method => 'GET',
-            path   => "/emqx_acl/:bin:login",
+            path   => "/mqtt_acl/:bin:login",
             func   => lookup,
             descr  => "Lookup mnesia in the cluster"
            }).
 
 -rest_api(#{name   => add_emqx_acl,
             method => 'POST',
-            path   => "/emqx_acl",
+            path   => "/mqtt_acl",
             func   => add,
             descr  => "Add mnesia in the cluster"
            }).
 
 -rest_api(#{name   => delete_emqx_acl,
             method => 'DELETE',
-            path   => "/emqx_acl/:bin:login/:bin:topic",
+            path   => "/mqtt_acl/:bin:login/:bin:topic",
             func   => delete,
             descr  => "Delete mnesia in the cluster"
            }).
