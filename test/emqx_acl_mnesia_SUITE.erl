@@ -130,7 +130,6 @@ t_check_acl_as_username(_Config) ->
     ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A">>, <<"sub">>, true),
     ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/B">>, <<"pub">>, true),
     ok = emqx_auth_mnesia_cli:add_acl(<<"test_username">>, <<"Topic/A/B">>, <<"pubsub">>, false),
-   
     allow = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A">>),
     allow = emqx_access_control:check_acl(User1, subscribe, <<"Topic/B">>),
     deny  = emqx_access_control:check_acl(User1, subscribe, <<"Topic/A/B">>),
@@ -210,6 +209,39 @@ t_rest_api(_Config) ->
     {ok, _} = request_http_rest_delete(<<"test_username/1">>, <<"#">>),
     {ok, Result5} = request_http_rest_list(),
     [] = get_http_data(Result5).
+
+
+t_run_command(_) ->
+    clean_all_acls(),
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-acl", "add", "TestUser", "Topic/A", "sub", true])),
+    ?assertEqual([{emqx_acl,<<"TestUser">>,<<"Topic/A">>,<<"sub">>, true}],emqx_auth_mnesia_cli:lookup_acl(<<"TestUser">>)),
+
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-acl", "del", "TestUser", "Topic/A"])),
+    ?assertEqual([],emqx_auth_mnesia_cli:lookup_acl(<<"TestUser">>)),
+
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-acl", "show", "TestUser"])),
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-acl", "list"])),
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-acl"])).
+
+t_cli(_) ->
+    meck:new(emqx_ctl, [non_strict, passthrough]),
+    meck:expect(emqx_ctl, print, fun(Arg) -> emqx_ctl:format(Arg) end),
+    meck:expect(emqx_ctl, print, fun(Msg, Arg) -> emqx_ctl:format(Msg, Arg) end),
+    meck:expect(emqx_ctl, usage, fun(Usages) -> emqx_ctl:format_usage(Usages) end),
+    meck:expect(emqx_ctl, usage, fun(Cmd, Descr) -> emqx_ctl:format_usage(Cmd, Descr) end),
+
+    clean_all_acls(),
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:acl_cli(["add", "TestUser", "Topic/A", "sub", true]), "ok")),
+    ?assertMatch(["Acl(login = <<\"TestUser\">> topic = <<\"Topic/A\">> action = <<\"sub\">> allow = true)\n"], emqx_auth_mnesia_cli:acl_cli(["show", "TestUser"])),
+    ?assertMatch(["Acl(login = <<\"TestUser\">>)\n"], emqx_auth_mnesia_cli:acl_cli(["list"])),
+
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:acl_cli(["del", "TestUser", "Topic/A"]), "ok")),
+    ?assertMatch([], emqx_auth_mnesia_cli:acl_cli(["show", "TestUser"])),
+    ?assertMatch([], emqx_auth_mnesia_cli:acl_cli(["list"])),
+
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:acl_cli([]), "mqtt-acl")),
+
+    meck:unload(emqx_ctl).
 
 %%------------------------------------------------------------------------------
 %% Helpers

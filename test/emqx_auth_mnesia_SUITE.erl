@@ -178,6 +178,47 @@ t_rest_api(_Config) ->
     {ok, #{auth_result := success,
            anonymous := true }} = emqx_access_control:authenticate(User1).
 
+t_run_command(_) ->
+    clean_all_users(),
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-user", "add", "TestUser", "Password", false])),
+    ?assertMatch([{emqx_user, <<"TestUser">>, _, false}], emqx_auth_mnesia_cli:lookup_user(<<"TestUser">>)),
+
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-user", "update", "TestUser", "NewPassword", true])),
+    ?assertMatch([{emqx_user, <<"TestUser">>, _, true}], emqx_auth_mnesia_cli:lookup_user(<<"TestUser">>)),
+
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-user", "del", "TestUser"])),
+    ?assertMatch([], emqx_auth_mnesia_cli:lookup_user(<<"TestUser">>)),
+
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-user", "show", "TestUser"])),
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-user", "list"])),
+    ?assertEqual(ok, emqx_ctl:run_command(["mqtt-user"])).
+
+t_cli(_) ->
+    meck:new(emqx_ctl, [non_strict, passthrough]),
+    meck:expect(emqx_ctl, print, fun(Arg) -> emqx_ctl:format(Arg) end),
+    meck:expect(emqx_ctl, print, fun(Msg, Arg) -> emqx_ctl:format(Msg, Arg) end),
+    meck:expect(emqx_ctl, usage, fun(Usages) -> emqx_ctl:format_usage(Usages) end),
+    meck:expect(emqx_ctl, usage, fun(Cmd, Descr) -> emqx_ctl:format_usage(Cmd, Descr) end),
+
+    clean_all_users(),
+
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:auth_cli(["add", "TestUser", "Password", true]), "ok")),
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:auth_cli(["add", "TestUser", "Password", true]), "Error")),
+
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:auth_cli(["update", "NoExisted", "Password", false]), "Error")),
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:auth_cli(["update", "TestUser", "Password", false]), "ok")),
+
+    ?assertMatch(["User(login = <<\"TestUser\">> is_super = false)\n"], emqx_auth_mnesia_cli:auth_cli(["show", "TestUser"])),
+    ?assertMatch(["User(login = <<\"TestUser\">>)\n"], emqx_auth_mnesia_cli:auth_cli(["list"])),
+
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:auth_cli(["del", "TestUser"]), "ok")),
+    ?assertMatch([], emqx_auth_mnesia_cli:auth_cli(["show", "TestUser"])),
+    ?assertMatch([], emqx_auth_mnesia_cli:auth_cli(["list"])),
+
+    ?assertMatch({match, _}, re:run(emqx_auth_mnesia_cli:auth_cli([]), "mqtt-user")),
+
+    meck:unload(emqx_ctl).
+
 %%------------------------------------------------------------------------------
 %% Helpers
 %%------------------------------------------------------------------------------
