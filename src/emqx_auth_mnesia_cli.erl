@@ -18,31 +18,28 @@
 
 -include("emqx_auth_mnesia.hrl").
 -include_lib("emqx/include/logger.hrl").
+-include_lib("stdlib/include/ms_transform.hrl").
 -define(TABLE, emqx_user).
 %% Auth APIs
--export([ add_user/3
-        , update_user/3
+-export([ add_user/2
+        , update_user/2
         , remove_user/1
         , lookup_user/1
         , all_users/0
-        ]).
-%% Acl APIs
--export([ add_acl/4
-        , remove_acl/2
-        , lookup_acl/1
-        , all_acls/0
+        , all_users/1
         ]).
 %% Cli
--export([ auth_cli/1
-        , acl_cli/1]).
+-export([ auth_clientid_cli/1
+        , auth_username_cli/1
+        ]).
 %%--------------------------------------------------------------------
 %% Auth APIs
 %%--------------------------------------------------------------------
 
 %% @doc Add User
--spec(add_user(binary(), binary(), atom()) -> ok | {error, any()}).
-add_user(Login, Password, IsSuperuser) ->
-    User = #emqx_user{login = Login, password = encrypted_data(Password), is_superuser = IsSuperuser},
+-spec(add_user(tuple(), binary()) -> ok | {error, any()}).
+add_user(Login, Password) ->
+    User = #emqx_user{login = Login, password = encrypted_data(Password)},
     ret(mnesia:transaction(fun insert_user/1, [User])).
 
 insert_user(User = #emqx_user{login = Login}) ->
@@ -52,9 +49,9 @@ insert_user(User = #emqx_user{login = Login}) ->
     end.
 
 %% @doc Update User
--spec(update_user(binary(), binary(), atom()) -> ok | {error, any()}).
-update_user(Login, NewPassword, IsSuperuser) ->
-    User = #emqx_user{login = Login, password = encrypted_data(NewPassword), is_superuser = IsSuperuser},
+-spec(update_user(tuple(), binary()) -> ok | {error, any()}).
+update_user(Login, NewPassword) ->
+    User = #emqx_user{login = Login, password = encrypted_data(NewPassword)},
     ret(mnesia:transaction(fun do_update_user/1, [User])).
 
 do_update_user(User = #emqx_user{login = Login}) ->
@@ -64,7 +61,7 @@ do_update_user(User = #emqx_user{login = Login}) ->
     end.
 
 %% @doc Lookup user by login
--spec(lookup_user(binary()) -> list()).
+-spec(lookup_user(tuple()) -> list()).
 lookup_user(undefined) -> [];
 lookup_user(Login) ->
     case mnesia:dirty_read(?TABLE, Login) of
@@ -75,7 +72,7 @@ lookup_user(Login) ->
     end.
 
 %% @doc Remove user
--spec(remove_user(binary()) -> ok | {error, any()}).
+-spec(remove_user(tuple()) -> ok | {error, any()}).
 remove_user(Login) ->
     ret(mnesia:transaction(fun mnesia:delete/1, [{?TABLE, Login}])).
 
@@ -83,38 +80,13 @@ remove_user(Login) ->
 -spec(all_users() -> list()).
 all_users() -> mnesia:dirty_all_keys(?TABLE).
 
-%%--------------------------------------------------------------------
-%% Acl API
-%%--------------------------------------------------------------------
+all_users(clientid) ->
+    MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, Clientid}, _Password}) -> Clientid end),
+    ets:select(?TABLE, MatchSpec);
 
-%% @doc Add Acls
--spec(add_acl(binary(), binary(), binary(), atom()) -> ok | {error, any()}).
-add_acl(Login, Topic, Action, Allow) ->
-    Acls = #emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow},
-    ret(mnesia:transaction(fun mnesia:write/1, [Acls])).
-
-%% @doc Lookup acl by login
--spec(lookup_acl(binary()) -> list()).
-lookup_acl(undefined) -> [];
-lookup_acl(Login) ->
-    case mnesia:dirty_read(emqx_acl, Login) of
-        {error, Reason} ->
-            ?LOG(error, "[Mnesia] do_check_acl error: ~p~n", [Reason]),
-            [];
-        Re -> Re
-    end.
-
-%% @doc Remove acl
--spec(remove_acl(binary(), binary()) -> ok | {error, any()}).
-remove_acl(Login, Topic) ->
-    [ ok = mnesia:dirty_delete_object(emqx_acl, #emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow})  || [Action, Allow] <- ets:select(emqx_acl, [{{emqx_acl, Login, Topic,'$1','$2'}, [], ['$$']}])],
-    ok.
-
-
-%% @doc All logins
--spec(all_acls() -> list()).
-all_acls() -> mnesia:dirty_all_keys(emqx_acl).
-
+all_users(username) ->
+    MatchSpec = ets:fun2ms(fun({?TABLE, {username, Username}, _Password}) -> Username end),
+    ets:select(?TABLE, MatchSpec).
 
 %%--------------------------------------------------------------------
 %% Internal functions
@@ -124,70 +96,77 @@ ret({atomic, ok})     -> ok;
 ret({aborted, Error}) -> {error, Error}.
 
 encrypted_data(Password) ->
-    HashType = application:get_env(emqx_auth_mnesia, hash_type, sha256),
-    emqx_passwd:hash(HashType, Password).
+    HashType = application:get_env(emqx_auth_clientid, password_hash, sha256),
+    SaltBin = salt(),
+    <<SaltBin/binary, (hash(Password, SaltBin, HashType))/binary>>.
+
+hash(undefined, SaltBin, HashType) ->
+    hash(<<>>, SaltBin, HashType);
+hash(Password, SaltBin, HashType) ->
+    emqx_passwd:hash(HashType, <<SaltBin/binary, Password/binary>>).
+
+salt() ->
+    rand:seed(exsplus, erlang:timestamp()),
+    Salt = rand:uniform(16#ffffffff), <<Salt:32>>.
 
 %%--------------------------------------------------------------------
-%% Auth APIs
+%% Auth Clientid Cli
 %%--------------------------------------------------------------------
 
-%% User
-auth_cli(["add", Login, Password, IsSuperuser]) ->
-    case add_user(iolist_to_binary(Login), iolist_to_binary(Password), IsSuperuser) of
+auth_clientid_cli(["list"]) ->
+    [emqx_ctl:print("~s~n", [ClientId]) || ClientId <- all_users(clientid)];
+
+auth_clientid_cli(["add", ClientId, Password]) ->
+    case add_user({clientid, iolist_to_binary(ClientId)}, iolist_to_binary(Password)) of
         ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
-auth_cli(["update", Login, NewPassword, IsSuperuser]) ->
-    case update_user(iolist_to_binary(Login), iolist_to_binary(NewPassword), IsSuperuser) of
+auth_clientid_cli(["update", ClientId, NewPassword]) ->
+    case update_user({clientid, iolist_to_binary(ClientId)}, iolist_to_binary(NewPassword)) of
         ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
-auth_cli(["del", Login]) ->
-    case  remove_user(iolist_to_binary(Login)) of
+auth_clientid_cli(["del", ClientId]) ->
+    case  remove_user({clientid, iolist_to_binary(ClientId)}) of
         ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
-auth_cli(["show", P]) ->
-    [emqx_ctl:print("User(login = ~p is_super = ~p)~n", [Login, IsSuperuser])
-     || {_, Login, _Password, IsSuperuser} <- lookup_user(iolist_to_binary(P))];
+auth_clientid_cli(_) ->
+    emqx_ctl:usage([{"clientid list", "List ClientId"},
+                    {"clientid add <ClientId> <Password>", "Add ClientId"},
+                    {"clientid update <Clientid> <NewPassword>", "Update Clientid"},
+                    {"clientid del <ClientId>", "Delete ClientId"}]).
 
-auth_cli(["list"]) ->
-    [emqx_ctl:print("User(login = ~p)~n",[E])
-     || E <- all_users()];
+%%--------------------------------------------------------------------
+%% Auth Username Cli
+%%--------------------------------------------------------------------
 
-auth_cli(_) ->
-    emqx_ctl:usage([{"mqtt-user add <Login> <Password> <IsSuper>", "Add user"},
-                    {"mqtt-user update <Login> <NewPassword> <IsSuper>", "Update user"},
-                    {"mqtt-user delete <Login>", "Delete user"},
-                    {"mqtt-user show <Login>", "Lookup user detail"},
-                    {"mqtt-user list", "List all users"}]).
+auth_username_cli(["list"]) ->
+    [emqx_ctl:print("~s~n", [Username]) || Username <- all_users(username)];
 
-%% Acl
-acl_cli(["add", Login, Topic, Action, Allow]) ->
-    case add_acl(iolist_to_binary(Login), iolist_to_binary(Topic), iolist_to_binary(Action), Allow) of
+auth_username_cli(["add", Username, Password]) ->
+    case add_user({username, iolist_to_binary(Username)}, iolist_to_binary(Password)) of
         ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
-acl_cli(["del", Login, Topic])->
-    case remove_acl(iolist_to_binary(Login), iolist_to_binary(Topic)) of
-         ok -> emqx_ctl:print("ok~n");
+auth_username_cli(["update", Username, NewPassword]) ->
+    case update_user({username, iolist_to_binary(Username)}, iolist_to_binary(NewPassword)) of
+        ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
-acl_cli(["show", P]) ->
-    [emqx_ctl:print("Acl(login = ~p topic = ~p action = ~p allow = ~p)~n",[Login, Topic, Action, Allow])
-     || {_, Login, Topic, Action, Allow} <- lookup_acl(iolist_to_binary(P)) ];
+auth_username_cli(["del", Username]) ->
+    case  remove_user({username, iolist_to_binary(Username)}) of
+        ok -> emqx_ctl:print("ok~n");
+        {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
+    end;
 
-acl_cli(["list"]) ->
-    [emqx_ctl:print("Acl(login = ~p)~n",[E])
-     || E <- all_acls() ];
-
-acl_cli(_) ->
-    emqx_ctl:usage([{"mqtt-acl add <Login> <Topic> <Action> <Allow>", "Add acl"},
-                    {"mqtt-acl show <Login>", "Lookup acl detail"},
-                    {"mqtt-acl del <Login>", "Delete acl"},
-                    {"mqtt-acl list","List all acls"}]).
+auth_username_cli(_) ->
+    emqx_ctl:usage([{"users list", "List users"},
+                    {"users add <Username> <Password>", "Add User"},
+                    {"users update <Username> <NewPassword>", "Update User"},
+                    {"users del <Username>", "Delete User"}]).

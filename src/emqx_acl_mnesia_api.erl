@@ -18,94 +18,214 @@
 
 -include("emqx_auth_mnesia.hrl").
 
+-include_lib("stdlib/include/ms_transform.hrl").
+
 -import(proplists, [get_value/2]).
 
 -import(minirest,  [return/1]).
 
--rest_api(#{name   => list_emqx_acl,
+-rest_api(#{name   => list_clientid,
             method => 'GET',
-            path   => "/mqtt_acl",
-            func   => list,
+            path   => "/acl/clientid",
+            func   => list_clientid,
             descr  => "List available mnesia in the cluster"
            }).
 
--rest_api(#{name   => lookup_emqx_acl,
+-rest_api(#{name   => list_username,
             method => 'GET',
-            path   => "/mqtt_acl/:bin:login",
-            func   => lookup,
+            path   => "/acl/username",
+            func   => list_username,
+            descr  => "List available mnesia in the cluster"
+           }).
+
+-rest_api(#{name   => list_all,
+            method => 'GET',
+            path   => "/acl",
+            func   => list_all,
+            descr  => "List available mnesia in the cluster"
+           }).
+
+-rest_api(#{name   => lookup_clientid,
+            method => 'GET',
+            path   => "/acl/clientid/:bin:clientid",
+            func   => lookup_clientid,
             descr  => "Lookup mnesia in the cluster"
            }).
 
--rest_api(#{name   => add_emqx_acl,
+-rest_api(#{name   => lookup_username,
+            method => 'GET',
+            path   => "/acl/username/:bin:username",
+            func   => lookup_username,
+            descr  => "Lookup mnesia in the cluster"
+           }).
+
+-rest_api(#{name   => add_clientid,
             method => 'POST',
-            path   => "/mqtt_acl",
-            func   => add,
+            path   => "/acl/clientid",
+            func   => add_clientid,
             descr  => "Add mnesia in the cluster"
            }).
 
--rest_api(#{name   => delete_emqx_acl,
+-rest_api(#{name   => add_username,
+            method => 'POST',
+            path   => "/acl/username",
+            func   => add_username,
+            descr  => "Add mnesia in the cluster"
+           }).
+
+-rest_api(#{name   => add_all,
+            method => 'POST',
+            path   => "/acl",
+            func   => add_all,
+            descr  => "Add mnesia in the cluster"
+           }).
+
+-rest_api(#{name   => delete_clientid,
             method => 'DELETE',
-            path   => "/mqtt_acl/:bin:login/:bin:topic",
-            func   => delete,
+            path   => "/acl/clientid/:bin:clientid/:bin:topic",
+            func   => delete_clientid,
             descr  => "Delete mnesia in the cluster"
            }).
 
--export([ list/2
-        , lookup/2
-        , add/2
-        , delete/2
+-rest_api(#{name   => delete_username,
+            method => 'DELETE',
+            path   => "/acl/username/:bin:username/:bin:topic",
+            func   => delete_username,
+            descr  => "Delete mnesia in the cluster"
+           }).
+
+-rest_api(#{name   => delete_all,
+            method => 'DELETE',
+            path   => "/acl/:bin:topic",
+            func   => delete_all,
+            descr  => "Delete mnesia in the cluster"
+           }).
+
+
+-export([ list_clientid/2
+        , list_username/2
+        , list_all/2
+        , lookup_clientid/2
+        , lookup_username/2
+        , add_clientid/2
+        , add_username/2
+        , add_all/2
+        , delete_clientid/2
+        , delete_username/2
+        , delete_all/2
         ]).
 
-list(_Bindings, Params) ->
-    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, Params, fun format/1)}).
+list_clientid(_Bindings, Params) ->
+    MatchSpec = ets:fun2ms(
+                  fun({emqx_acl, {{clientid, Clientid}, Topic}, Action, Access }) -> {{clientid,Clientid}, Topic, Action,Access} end),
+    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun format/1)}).
 
-lookup(#{login := Login}, _Params) ->
-    return({ok, format(emqx_auth_mnesia_cli:lookup_acl(urldecode(Login)))}).
+list_username(_Bindings, Params) ->
+    MatchSpec = ets:fun2ms(
+                  fun({emqx_acl, {{username, Username}, Topic}, Action, Access }) -> {{username, Username}, Topic, Action,Access} end),
+    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun format/1)}).
 
-add(_Bindings, Params) ->
+list_all(_Bindings, Params) ->
+    MatchSpec = ets:fun2ms(
+                  fun({emqx_acl, {all, Topic}, Action, Access }) -> {all, Topic, Action,Access}end
+                 ),
+    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun format/1)}).
+
+
+lookup_clientid(#{clientid := Clientid}, _Params) ->
+    return({ok, format(emqx_acl_mnesia_cli:lookup_acl({clientid, urldecode(Clientid)}))}).
+
+lookup_username(#{username := Username}, _Params) ->
+    return({ok, format(emqx_acl_mnesia_cli:lookup_acl({username, urldecode(Username)}))}).
+
+add_clientid(_Bindings, Params) ->
     [ P | _] = Params,
     case is_list(P) of
-        true -> return(add_acl(Params, []));
-        false -> return(add_acl([Params], []))
+        true -> return(do_add_clientid(Params, []));
+        false -> return(do_add_clientid([Params], []))
     end.
 
-add_acl([ Params | ParamsN ], ReList ) ->
-    Login = urldecode(get_value(<<"login">>, Params)),
+do_add_clientid([ Params | ParamsN ], ReList) ->
+    Clientid = urldecode(get_value(<<"clientid">>, Params)),
     Topic = urldecode(get_value(<<"topic">>, Params)),
     Action = urldecode(get_value(<<"action">>, Params)),
-    Allow = get_value(<<"allow">>, Params),
-    Re = case validate([login, topic, action, allow], [Login, Topic, Action, Allow]) of
+    Access = urldecode(get_value(<<"access">>, Params)),
+    Re = case validate([clientid, topic, action, access], [Clientid, Topic, Action, Access]) of
         ok -> 
-            emqx_auth_mnesia_cli:add_acl(Login, Topic, Action, Allow);
+            emqx_acl_mnesia_cli:add_acl({clientid, Clientid}, Topic, erlang:binary_to_atom(Action, utf8), erlang:binary_to_atom(Access, utf8));
         Err -> Err
     end,
-    add_acl(ParamsN, [{Login, format_msg(Re)} | ReList]);   
+    do_add_clientid(ParamsN, [{Clientid, format_msg(Re)} | ReList]);
     
-add_acl([], ReList) ->
+do_add_clientid([], ReList) ->
     {ok, ReList}.
 
-delete(#{login := Login, topic := Topic}, _) ->
-    return(emqx_auth_mnesia_cli:remove_acl(urldecode(Login), urldecode(Topic))).
+add_username(_Bindings, Params) ->
+    [ P | _] = Params,
+    case is_list(P) of
+        true -> return(do_add_username(Params, []));
+        false -> return(do_add_username([Params], []))
+    end.
+
+do_add_username([ Params | ParamsN ], ReList) ->
+    Usernmae = urldecode(get_value(<<"username">>, Params)),
+    Topic = urldecode(get_value(<<"topic">>, Params)),
+    Action = urldecode(get_value(<<"action">>, Params)),
+    Access = urldecode(get_value(<<"access">>, Params)),
+    Re = case validate([username, topic, action, access], [Usernmae, Topic, Action, Access]) of
+        ok ->
+            emqx_acl_mnesia_cli:add_acl({username, Usernmae}, Topic, erlang:binary_to_atom(Action, utf8), erlang:binary_to_atom(Access, utf8));
+        Err -> Err
+    end,
+    do_add_username(ParamsN, [{Usernmae, format_msg(Re)} | ReList]);
+
+do_add_username([], ReList) ->
+    {ok, ReList}.
+
+add_all(_Bindings, Params) ->
+    [ P | _] = Params,
+    case is_list(P) of
+        true -> return(do_add_all(Params, []));
+        false -> return(do_add_all([Params], []))
+    end.
+
+do_add_all([ Params | ParamsN ], ReList) ->
+    Topic = urldecode(get_value(<<"topic">>, Params)),
+    Action = urldecode(get_value(<<"action">>, Params)),
+    Access = urldecode(get_value(<<"access">>, Params)),
+    Re = case validate([topic, action, access], [Topic, Action, Access]) of
+        ok ->
+            emqx_acl_mnesia_cli:add_acl(all, Topic, erlang:binary_to_atom(Action, utf8), erlang:binary_to_atom(Access, utf8));
+        Err -> Err
+    end,
+    do_add_all(ParamsN, [{all, format_msg(Re)} | ReList]);
+ 
+do_add_all([], ReList) ->
+    {ok, ReList}.
+
+
+delete_clientid(#{clientid := Clientid, topic := Topic}, _) ->
+    return(emqx_acl_mnesia_cli:remove_acl({clientid, urldecode(Clientid)}, urldecode(Topic))).
+delete_username(#{username := Username, topic := Topic}, _) ->
+    return(emqx_acl_mnesia_cli:remove_acl({username, urldecode(Username)}, urldecode(Topic))).
+delete_all(#{topic := Topic}, _) ->
+    return(emqx_acl_mnesia_cli:remove_acl(all, urldecode(Topic))).
 
 %%------------------------------------------------------------------------------
 %% Interval Funcs
 %%------------------------------------------------------------------------------
-
-format(#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow}) ->
-    #{login => Login, topic => Topic, action => Action, allow => Allow };
-
-format([]) ->
-    #{};
-
-format([#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow}]) ->
-    format(#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow});
-
-format([ #emqx_acl{login = _Key, topic = _Topic, action = _Action, allow = _Allow}| _] = List) ->
+format({{clientid, Clientid}, Topic, Action, Access}) ->
+    #{clientid => Clientid, topic => Topic, action => Action, access => Access};
+format({{username, Username}, Topic, Action, Access}) ->
+    #{username => Username, topic => Topic, action => Action, access => Access};
+format({all, Topic, Action, Access}) ->
+    #{all => all, topic => Topic, action => Action, access => Access};
+format(List) when is_list(List) ->
     format(List, []).
-    
-format([#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow} | List], ReList) ->
-    format(List, [ format(#emqx_acl{login = Login, topic = Topic, action = Action, allow = Allow}) | ReList]);
-format([], ReList) -> ReList.
+
+format([L | List], Relist) ->
+    format(List, [format(L) | Relist]);
+format([], ReList) -> lists:reverse(ReList).
 
 validate([], []) ->
     ok;
@@ -115,7 +235,10 @@ validate([K|Keys], [V|Values]) ->
        true  -> validate(Keys, Values)
    end.
 
-do_validation(login, V) when is_binary(V)
+do_validation(clientid, V) when is_binary(V)
+                     andalso byte_size(V) > 0 ->
+    true;
+do_validation(username, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
     true;
 do_validation(topic, V) when is_binary(V)
@@ -126,7 +249,7 @@ do_validation(action, V) when is_binary(V) ->
         true -> true;
         false -> false
     end;
-do_validation(allow, V) when is_boolean(V) ->
+do_validation(access, V) when V =:= <<"allow">> orelse V =:= <<"deny">> ->
     true;
 do_validation(_, _) ->
     false.
@@ -145,4 +268,3 @@ urldecode(S) ->
 urldecode(S) ->
     http_uri:decode(S).
 -endif.
-
