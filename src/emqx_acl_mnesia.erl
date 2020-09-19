@@ -18,6 +18,10 @@
 
 -include("emqx_auth_mnesia.hrl").
 
+-include_lib("stdlib/include/ms_transform.hrl").
+
+-define(TABLE, emqx_acl).
+
 %% ACL Callbacks
 -export([ init/0
         , register_metrics/0
@@ -27,7 +31,7 @@
 
 init() ->
     ok = ekka_mnesia:create_table(emqx_acl, [
-            {type, bag},
+            {type, ordered_set},
             {disc_copies, [node()]},
             {attributes, record_info(fields, emqx_acl)},
             {storage_properties, [{ets, [{read_concurrency, true}]}]}]),
@@ -37,12 +41,29 @@ init() ->
 register_metrics() ->
     lists:foreach(fun emqx_metrics:ensure/1, ?ACL_METRICS).
 
-check_acl(ClientInfo, PubSub, Topic, NoMatchAction, #{key_as := As}) ->
-    Login = maps:get(As, ClientInfo),
-    case do_check_acl(Login, PubSub, Topic, NoMatchAction) of
-        ok -> emqx_metrics:inc(?ACL_METRICS(ignore)), ok;
-        {stop, allow} -> emqx_metrics:inc(?ACL_METRICS(allow)), {stop, allow};
-        {stop, deny} -> emqx_metrics:inc(?ACL_METRICS(deny)), {stop, deny}
+check_acl(ClientInfo = #{ clientid := Clientid }, PubSub, Topic, _NoMatchAction, _Params) ->
+    Username = maps:get(username, ClientInfo, undefined),
+
+    Acls = case Username of
+               undefined ->
+                   emqx_acl_mnesia_cli:lookup_acl({clientid, Clientid}) ++
+                   emqx_acl_mnesia_cli:lookup_acl(all);
+               _ ->
+                   emqx_acl_mnesia_cli:lookup_acl({clientid, Clientid}) ++
+                   emqx_acl_mnesia_cli:lookup_acl({username, Username}) ++
+                   emqx_acl_mnesia_cli:lookup_acl(all)
+           end,
+
+    case match(PubSub, Topic, Acls) of
+        allow ->
+            emqx_metrics:inc(?ACL_METRICS(allow)),
+            {stop, allow};
+        deny ->
+            emqx_metrics:inc(?ACL_METRICS(deny)),
+            {stop, deny};
+        _ ->
+            emqx_metrics:inc(?ACL_METRICS(ignore)),
+            ok
     end.
 
 description() -> "Acl with Mnesia".
@@ -51,33 +72,18 @@ description() -> "Acl with Mnesia".
 %% Internal functions
 %%-------------------------------------------------------------------
 
-do_check_acl(Login, PubSub, Topic, _NoMatchAction) ->
-    case match(PubSub, Topic, emqx_auth_mnesia_cli:lookup_acl(Login)) of
-        allow -> {stop, allow};
-        deny -> {stop, deny};
-        _ ->
-            case match(PubSub, Topic,  emqx_auth_mnesia_cli:lookup_acl(<<"$all">>)) of
-                allow -> {stop, allow};
-                deny -> {stop, deny};
-                _ -> ok
-            end
-    end.
-
 match(_PubSub, _Topic, []) ->
     nomatch;
-match(PubSub, Topic, [ #emqx_acl{topic = ACLTopic, action = Action, allow = Allow} | UserAcl]) ->
+match(PubSub, Topic, [ {_, ACLTopic, Action, Access} | Acls]) ->
     case match_actions(PubSub, Action) andalso match_topic(Topic, ACLTopic) of
-        true -> case Allow of
-                    true -> allow;
-                    _ -> deny
-                end;
-        false -> match(PubSub, Topic, UserAcl)
+        true -> Access;
+        false -> match(PubSub, Topic, Acls)
     end.
 
 match_topic(Topic, ACLTopic) when is_binary(Topic) ->
     emqx_topic:match(Topic, ACLTopic).
 
-match_actions(_, <<"pubsub">>) -> true;
-match_actions(subscribe, <<"sub">>) -> true;
-match_actions(publish, <<"pub">>) -> true;
+match_actions(_, pubsub) -> true;
+match_actions(subscribe, sub) -> true;
+match_actions(publish, pub) -> true;
 match_actions(_, _) -> false.
