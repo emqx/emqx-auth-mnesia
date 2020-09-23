@@ -128,13 +128,13 @@ t_acl_cli(_Config) ->
     ?assertMatch(["Acl(username = <<\"test_username\">> topic = <<\"topic/B\">> action = sub access = deny)\n"], emqx_acl_mnesia_cli:cli(["show", "username", "test_username"])),
     ?assertMatch(["Acl(username = <<\"test_username\">> topic = <<\"topic/B\">> action = sub access = deny)\n"], emqx_acl_mnesia_cli:cli(["list", "username"])),
 
-    emqx_acl_mnesia_cli:cli(["add", "$all", "#", "pubsub", "deny"]),
-    ?assertMatch(["Acl($all topic = <<\"#\">> action = pubsub access = deny)\n"], emqx_acl_mnesia_cli:cli(["list", "$all"])),
+    emqx_acl_mnesia_cli:cli(["add", "_all", "#", "pubsub", "deny"]),
+    ?assertMatch(["Acl($all topic = <<\"#\">> action = pubsub access = deny)\n"], emqx_acl_mnesia_cli:cli(["list", "_all"])),
     ?assertEqual(3, length(emqx_acl_mnesia_cli:cli(["list"]))),
 
     emqx_acl_mnesia_cli:cli(["del", "clientid", "test_clientid", "topic/A"]),
     emqx_acl_mnesia_cli:cli(["del", "username", "test_username", "topic/B"]),
-    emqx_acl_mnesia_cli:cli(["del", "$all", "#"]),
+    emqx_acl_mnesia_cli:cli(["del", "_all", "#"]),
     ?assertEqual(0, length(emqx_acl_mnesia_cli:cli(["list"]))),
 
     meck:unload(emqx_ctl).
@@ -148,9 +148,9 @@ t_rest_api(_Config) ->
     {ok, _} = request_http_rest_add(["clientid"], Params1),
     {ok, Re1} = request_http_rest_list(["clientid", "test_clientid"]),
     ?assertMatch(Params1, get_http_data(Re1)),
-    {ok, _} = request_http_rest_delete(["clientid", "test_clientid", "topic/A"]),
-    {ok, _} = request_http_rest_delete(["clientid", "test_clientid", "topic/B"]),
-    {ok, _} = request_http_rest_delete(["clientid", "test_clientid", "topic/C"]),
+    {ok, _} = request_http_rest_delete(["clientid", "test_clientid", "topic", "topic/A"]),
+    {ok, _} = request_http_rest_delete(["clientid", "test_clientid", "topic", "topic/B"]),
+    {ok, _} = request_http_rest_delete(["clientid", "test_clientid", "topic", "topic/C"]),
     {ok, Res1} = request_http_rest_list(["clientid"]),
     ?assertMatch([], get_http_data(Res1)),
 
@@ -160,22 +160,22 @@ t_rest_api(_Config) ->
     {ok, _} = request_http_rest_add(["username"], Params2),
     {ok, Re2} = request_http_rest_list(["username", "test_username"]),
     ?assertMatch(Params2, get_http_data(Re2)),
-    {ok, _} = request_http_rest_delete(["username", "test_username", "topic/A"]),
-    {ok, _} = request_http_rest_delete(["username", "test_username", "topic/B"]),
-    {ok, _} = request_http_rest_delete(["username", "test_username", "topic/C"]),
+    {ok, _} = request_http_rest_delete(["username", "test_username", "topic", "topic/A"]),
+    {ok, _} = request_http_rest_delete(["username", "test_username", "topic", "topic/B"]),
+    {ok, _} = request_http_rest_delete(["username", "test_username", "topic", "topic/C"]),
     {ok, Res2} = request_http_rest_list(["username"]),
     ?assertMatch([], get_http_data(Res2)),
 
     Params3 = [#{<<"topic">> => <<"topic/A">>, <<"action">> => <<"pub">>, <<"access">> => <<"allow">>},
                #{<<"topic">> => <<"topic/B">>, <<"action">> => <<"sub">>, <<"access">> => <<"allow">>},
                #{<<"topic">> => <<"topic/C">>, <<"action">> => <<"pubsub">>, <<"access">> => <<"deny">>}],
-    {ok, _} = request_http_rest_add([], Params3),
-    {ok, Re3} = request_http_rest_list([]),
+    {ok, _} = request_http_rest_add(["$all"], Params3),
+    {ok, Re3} = request_http_rest_list(["$all"]),
     ?assertMatch(3, length(get_http_data(Re3))),
-    {ok, _} = request_http_rest_delete(["topic/A"]),
-    {ok, _} = request_http_rest_delete(["topic/B"]),
-    {ok, _} = request_http_rest_delete(["topic/C"]),
-    {ok, Res3} = request_http_rest_list([]),
+    {ok, _} = request_http_rest_delete(["$all", "topic", "topic/A"]),
+    {ok, _} = request_http_rest_delete(["$all", "topic", "topic/B"]),
+    {ok, _} = request_http_rest_delete(["$all", "topic", "topic/C"]),
+    {ok, Res3} = request_http_rest_list(["$all"]),
     ?assertMatch([], get_http_data(Res3)).
 
 %%------------------------------------------------------------------------------

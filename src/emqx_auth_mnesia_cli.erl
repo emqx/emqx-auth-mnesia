@@ -135,10 +135,10 @@ auth_clientid_cli(["del", ClientId]) ->
     end;
 
 auth_clientid_cli(_) ->
-    emqx_ctl:usage([{"clientid list", "List ClientId"},
-                    {"clientid add <ClientId> <Password>", "Add ClientId"},
-                    {"clientid update <Clientid> <NewPassword>", "Update Clientid"},
-                    {"clientid del <ClientId>", "Delete ClientId"}]).
+    emqx_ctl:usage([{"clientid list", "List clientid auth rules"},
+                    {"clientid add <Username> <Password>", "Add clientid auth rule"},
+                    {"clientid update <Username> <NewPassword>", "Update clientid auth rule"},
+                    {"clientid del <Username>", "Delete clientid auth rule"}]).
 
 %%--------------------------------------------------------------------
 %% Auth Username Cli
@@ -166,7 +166,7 @@ auth_username_cli(["del", Username]) ->
     end;
 
 auth_username_cli(_) ->
-    emqx_ctl:usage([{"users list", "List users"},
-                    {"users add <Username> <Password>", "Add User"},
-                    {"users update <Username> <NewPassword>", "Update User"},
-                    {"users del <Username>", "Delete User"}]).
+    emqx_ctl:usage([{"users list", "List username auth rules"},
+                    {"users add <Username> <Password>", "Add username auth rule"},
+                    {"users update <Username> <NewPassword>", "Update username auth rule"},
+                    {"users del <Username>", "Delete username auth rule"}]).

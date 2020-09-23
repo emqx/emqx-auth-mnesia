@@ -95,7 +95,7 @@ cli(["list", "username"]) ->
     [emqx_ctl:print("Acl(username = ~p topic = ~p action = ~p access = ~p)~n",[Username, Topic, Action, Access])
      || {{username, Username}, Topic, Action, Access} <- all_acls(username) ];
 
-cli(["list", "$all"]) ->
+cli(["list", "_all"]) ->
     [emqx_ctl:print("Acl($all topic = ~p action = ~p access = ~p)~n",[Topic, Action, Access])
      || {all, Topic, Action, Access} <- all_acls(all) ];
 
@@ -121,7 +121,7 @@ cli(["add", "username", Username, Topic, Action, Access]) ->
              emqx_ctl:print("Error: Input is illegal~n")
     end;
 
-cli(["add", "$all", Topic, Action, Access]) ->
+cli(["add", "_all", Topic, Action, Access]) ->
     case validate(action, Action) andalso validate(access, Access) of
         true ->
             case add_acl(all, iolist_to_binary(Topic), list_to_existing_atom(Action), list_to_existing_atom(Access)) of
@@ -152,24 +152,24 @@ cli(["del", "username", Username, Topic])->
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
-cli(["del", "$all", Topic])->
+cli(["del", "_all", Topic])->
     case remove_acl(all, iolist_to_binary(Topic)) of
          ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
 cli(_) ->
-    emqx_ctl:usage([ {"acl list clientid","List all acls"}
-                   , {"acl list username","List all acls"}
-                   , {"acl list $all","List all acls"}
-                   , {"acl show username <Username>", "Lookup acl detail"}
-                   , {"acl show clientid <Clientid>", "Lookup acl detail"}
-                   , {"acl aad clientid <Clientid> <Topic> <Action> <Access>", "Add acl"}
-                   , {"acl add Username <Username> <Topic> <Action> <Access>", "Add acl"}
-                   , {"acl add $all <Topic> <Action> <Access>", "Add acl"}
-                   , {"acl del clientid <Clientid> <Topic>", "Delete acl"}
-                   , {"acl del username <Username> <Topic>", "Delete acl"}
-                   , {"acl del $all, <Topic>", "Delete acl"}
+    emqx_ctl:usage([ {"acl list clientid","List clientid acls"}
+                   , {"acl list username","List username acls"}
+                   , {"acl list _all","List $all acls"}
+                   , {"acl show clientid <Clientid>", "Lookup clientid acl detail"}
+                   , {"acl show username <Username>", "Lookup username acl detail"}
+                   , {"acl aad clientid <Clientid> <Topic> <Action> <Access>", "Add clientid acl"}
+                   , {"acl add Username <Username> <Topic> <Action> <Access>", "Add username acl"}
+                   , {"acl add _all <Topic> <Action> <Access>", "Add $all acl"}
+                   , {"acl del clientid <Clientid> <Topic>", "Delete clientid acl"}
+                   , {"acl del username <Username> <Topic>", "Delete username acl"}
+                   , {"acl del _all, <Topic>", "Delete $all acl"}
                    ]).
 
 %%--------------------------------------------------------------------

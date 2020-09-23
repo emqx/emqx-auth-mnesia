@@ -40,7 +40,7 @@
 
 -rest_api(#{name   => list_all,
             method => 'GET',
-            path   => "/acl",
+            path   => "/acl/$all",
             func   => list_all,
             descr  => "List available mnesia in the cluster"
            }).
@@ -75,28 +75,28 @@
 
 -rest_api(#{name   => add_all,
             method => 'POST',
-            path   => "/acl",
+            path   => "/acl/$all",
             func   => add_all,
             descr  => "Add mnesia in the cluster"
            }).
 
 -rest_api(#{name   => delete_clientid,
             method => 'DELETE',
-            path   => "/acl/clientid/:bin:clientid/:bin:topic",
+            path   => "/acl/clientid/:bin:clientid/topic/:bin:topic",
             func   => delete_clientid,
             descr  => "Delete mnesia in the cluster"
            }).
 
 -rest_api(#{name   => delete_username,
             method => 'DELETE',
-            path   => "/acl/username/:bin:username/:bin:topic",
+            path   => "/acl/username/:bin:username/topic/:bin:topic",
             func   => delete_username,
             descr  => "Delete mnesia in the cluster"
            }).
 
 -rest_api(#{name   => delete_all,
             method => 'DELETE',
-            path   => "/acl/:bin:topic",
+            path   => "/acl/$all/topic/:bin:topic",
             func   => delete_all,
             descr  => "Delete mnesia in the cluster"
            }).
