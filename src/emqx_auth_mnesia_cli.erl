@@ -96,7 +96,7 @@ ret({atomic, ok})     -> ok;
 ret({aborted, Error}) -> {error, Error}.
 
 encrypted_data(Password) ->
-    HashType = application:get_env(emqx_auth_clientid, password_hash, sha256),
+    HashType = application:get_env(emqx_auth_mnesia, password_hash, sha256),
     SaltBin = salt(),
     <<SaltBin/binary, (hash(Password, SaltBin, HashType))/binary>>.
 
