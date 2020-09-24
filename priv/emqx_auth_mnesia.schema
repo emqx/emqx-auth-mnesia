@@ -3,7 +3,7 @@
 
 {mapping, "auth.mnesia.password_hash", "emqx_auth_mnesia.password_hash", [
   {default, sha256},
-  {datatype, {enum, [plain, md5, sha, sha256]}}
+  {datatype, {enum, [plain, md5, sha, sha256, sha512]}}
 ]}.
 
 {mapping, "auth.client.$id.clientid", "emqx_auth_mnesia.clientid_list", [
