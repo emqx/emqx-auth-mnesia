@@ -115,7 +115,7 @@
 
 list_clientid(_Bindings, Params) ->
     MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, Clientid}, _Password}) -> Clientid end),
-    return({ok, paginate(?TABLE, MatchSpec, Params, fun(X) -> X end)}).
+    return({ok, paginate(?TABLE, MatchSpec, Params, fun(X) -> #{clientid => X} end)}).
 
 lookup_clientid(#{clientid := Clientid}, _Params) ->
     return({ok, format(emqx_auth_mnesia_cli:lookup_user({clientid, urldecode(Clientid)}))}).
@@ -157,7 +157,7 @@ delete_clientid(#{clientid := Clientid}, _) ->
 
 list_username(_Bindings, Params) ->
     MatchSpec = ets:fun2ms(fun({?TABLE, {username, Username}, _Password}) -> Username end),
-    return({ok, paginate(?TABLE, MatchSpec, Params, fun(X) -> X end)}).
+    return({ok, paginate(?TABLE, MatchSpec, Params, fun(X) -> #{username => X} end)}).
 
 lookup_username(#{username := Username}, _Params) ->
     return({ok, format(emqx_auth_mnesia_cli:lookup_user({username, urldecode(Username)}))}).
