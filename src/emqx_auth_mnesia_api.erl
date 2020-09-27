@@ -23,7 +23,7 @@
 
 -import(proplists, [get_value/2]).
 -import(minirest,  [return/1]).
--export([paginate/4]).
+-export([paginate/5]).
 
 -export([ list_clientid/2
         , lookup_clientid/2
@@ -114,8 +114,8 @@
 %%------------------------------------------------------------------------------
 
 list_clientid(_Bindings, Params) ->
-    MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, Clientid}, _Password}) -> Clientid end),
-    return({ok, paginate(?TABLE, MatchSpec, Params, fun(X) -> #{clientid => X} end)}).
+    MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, Clientid}, Password, CreatedAt}) -> {?TABLE, {clientid, Clientid}, Password, CreatedAt} end),
+    return({ok, paginate(?TABLE, MatchSpec, Params, fun emqx_auth_mnesia_cli:comparing/2, fun({?TABLE, {clientid, X}, _, _}) -> #{clientid => X} end)}).
 
 lookup_clientid(#{clientid := Clientid}, _Params) ->
     return({ok, format(emqx_auth_mnesia_cli:lookup_user({clientid, urldecode(Clientid)}))}).
@@ -156,8 +156,8 @@ delete_clientid(#{clientid := Clientid}, _) ->
 %%------------------------------------------------------------------------------
 
 list_username(_Bindings, Params) ->
-    MatchSpec = ets:fun2ms(fun({?TABLE, {username, Username}, _Password}) -> Username end),
-    return({ok, paginate(?TABLE, MatchSpec, Params, fun(X) -> #{username => X} end)}).
+    MatchSpec = ets:fun2ms(fun({?TABLE, {username, Username}, Password, CreatedAt}) -> {?TABLE, {username, Username}, Password, CreatedAt} end),
+    return({ok, paginate(?TABLE, MatchSpec, Params, fun emqx_auth_mnesia_cli:comparing/2, fun({?TABLE, {username, X}, _, _}) -> #{username => X} end)}).
 
 lookup_username(#{username := Username}, _Params) ->
     return({ok, format(emqx_auth_mnesia_cli:lookup_user({username, urldecode(Username)}))}).
@@ -197,7 +197,7 @@ delete_username(#{username := Username}, _) ->
 %% Paging Query
 %%------------------------------------------------------------------------------
 
-paginate(Tables, MatchSpec, Params, RowFun) ->
+paginate(Tables, MatchSpec, Params, ComparingFun, RowFun) ->
     Qh = query_handle(Tables, MatchSpec),
     Count = count(Tables, MatchSpec),
     Page = page(Params),
@@ -210,7 +210,7 @@ paginate(Tables, MatchSpec, Params, RowFun) ->
     Rows = qlc:next_answers(Cursor, Limit),
     qlc:delete_cursor(Cursor),
     #{meta  => #{page => Page, limit => Limit, count => Count},
-      data  => [RowFun(Row) || Row <- Rows]}.
+      data  => [RowFun(Row) || Row <- lists:sort(ComparingFun, Rows)]}.
 
 query_handle(Table, MatchSpec) when is_atom(Table) ->
     Options = {traverse, {select, MatchSpec}},
@@ -223,9 +223,13 @@ query_handle(Tables, MatchSpec) ->
     qlc:append([qlc:q([E || E <- ets:table(T, Options)]) || T <- Tables]).
 
 count(Table, MatchSpec) when is_atom(Table) ->
-    ets:select_count(Table, MatchSpec);
+    [{MatchPattern, Where, _Re}] = MatchSpec,
+    NMatchSpec = [{MatchPattern, Where, [true]}],
+    ets:select_count(Table, NMatchSpec);
 count([Table], MatchSpec) when is_atom(Table) ->
-    ets:select_count(Table, MatchSpec);
+    [{MatchPattern, Where, _Re}] = MatchSpec,
+    NMatchSpec = [{MatchPattern, Where, [true]}],
+    ets:select_count(Table, NMatchSpec);
 count(Tables, MatchSpec) ->
     lists:sum([count(T, MatchSpec) || T <- Tables]).
 
@@ -242,19 +246,19 @@ limit(Params) ->
 %% Interval Funcs
 %%------------------------------------------------------------------------------
 
-format({?TABLE, {clientid, ClientId}, Password}) ->
+format({?TABLE, {clientid, ClientId}, Password, _InterTime}) ->
     #{clientid => ClientId,
       password => Password};
 
-format({?TABLE, {username, Username}, Password}) ->
+format({?TABLE, {username, Username}, Password, _InterTime}) ->
     #{username => Username,
       password => Password};
 
-format([{?TABLE, {clientid, ClientId}, Password}]) ->
+format([{?TABLE, {clientid, ClientId}, Password, _InterTime}]) ->
     #{clientid => ClientId,
       password => Password};
 
-format([{?TABLE, {username, Username}, Password}]) ->
+format([{?TABLE, {username, Username}, Password, _InterTime}]) ->
     #{username => Username,
       password => Password};
 

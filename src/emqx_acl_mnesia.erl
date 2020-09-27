@@ -31,7 +31,6 @@
 
 init() ->
     ok = ekka_mnesia:create_table(emqx_acl, [
-            {type, ordered_set},
             {disc_copies, [node()]},
             {attributes, record_info(fields, emqx_acl)},
             {storage_properties, [{ets, [{read_concurrency, true}]}]}]),
@@ -74,7 +73,7 @@ description() -> "Acl with Mnesia".
 
 match(_PubSub, _Topic, []) ->
     nomatch;
-match(PubSub, Topic, [ {_, ACLTopic, Action, Access} | Acls]) ->
+match(PubSub, Topic, [ {_, ACLTopic, Action, Access, _} | Acls]) ->
     case match_actions(PubSub, Action) andalso match_topic(Topic, ACLTopic) of
         true -> Access;
         false -> match(PubSub, Topic, Acls)

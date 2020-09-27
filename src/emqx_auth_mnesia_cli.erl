@@ -32,6 +32,10 @@
 -export([ auth_clientid_cli/1
         , auth_username_cli/1
         ]).
+
+%% Helper
+-export([comparing/2]).
+
 %%--------------------------------------------------------------------
 %% Auth APIs
 %%--------------------------------------------------------------------
@@ -39,7 +43,7 @@
 %% @doc Add User
 -spec(add_user(tuple(), binary()) -> ok | {error, any()}).
 add_user(Login, Password) ->
-    User = #emqx_user{login = Login, password = encrypted_data(Password)},
+    User = #emqx_user{login = Login, password = encrypted_data(Password), created_at = erlang:system_time(millisecond)},
     ret(mnesia:transaction(fun insert_user/1, [User])).
 
 insert_user(User = #emqx_user{login = Login}) ->
@@ -56,7 +60,7 @@ update_user(Login, NewPassword) ->
 
 do_update_user(User = #emqx_user{login = Login}) ->
     case mnesia:read(?TABLE, Login) of
-        [_|_] -> mnesia:write(User);
+        [{?TABLE, Login, _, CreateAt}] -> mnesia:write(User#emqx_user{created_at = CreateAt});
         [] -> mnesia:abort(noexisted)
     end.
 
@@ -68,7 +72,8 @@ lookup_user(Login) ->
         {error, Reason} ->
             ?LOG(error, "[Mnesia] do_check_user error: ~p~n", [Reason]),
             [];
-        Re -> Re
+        Re ->
+            lists:sort(fun comparing/2, Re)
     end.
 
 %% @doc Remove user
@@ -81,16 +86,20 @@ remove_user(Login) ->
 all_users() -> mnesia:dirty_all_keys(?TABLE).
 
 all_users(clientid) ->
-    MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, Clientid}, _Password}) -> Clientid end),
-    ets:select(?TABLE, MatchSpec);
+    MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, Clientid}, Password, CreatedAt}) -> {?TABLE, {clientid, Clientid}, Password, CreatedAt} end),
+    lists:sort(fun comparing/2, ets:select(?TABLE, MatchSpec));
 
 all_users(username) ->
-    MatchSpec = ets:fun2ms(fun({?TABLE, {username, Username}, _Password}) -> Username end),
-    ets:select(?TABLE, MatchSpec).
+    MatchSpec = ets:fun2ms(fun({?TABLE, {username, Username}, Password, CreatedAt}) -> {?TABLE, {username, Username}, Password, CreatedAt} end),
+    lists:sort(fun comparing/2, ets:select(?TABLE, MatchSpec)).
 
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
+
+comparing({?TABLE, _, _, CreatedAt1},
+          {?TABLE, _, _, CreatedAt2}) ->
+    CreatedAt1 >= CreatedAt2.
 
 ret({atomic, ok})     -> ok;
 ret({aborted, Error}) -> {error, Error}.
@@ -114,7 +123,7 @@ salt() ->
 %%--------------------------------------------------------------------
 
 auth_clientid_cli(["list"]) ->
-    [emqx_ctl:print("~s~n", [ClientId]) || ClientId <- all_users(clientid)];
+    [emqx_ctl:print("~s~n", [ClientId]) || {?TABLE, {clientid, ClientId}, _Password, _CreatedAt} <- all_users(clientid)];
 
 auth_clientid_cli(["add", ClientId, Password]) ->
     case add_user({clientid, iolist_to_binary(ClientId)}, iolist_to_binary(Password)) of
@@ -145,7 +154,7 @@ auth_clientid_cli(_) ->
 %%--------------------------------------------------------------------
 
 auth_username_cli(["list"]) ->
-    [emqx_ctl:print("~s~n", [Username]) || Username <- all_users(username)];
+    [emqx_ctl:print("~s~n", [Username]) || {?TABLE, {username, Username}, _Password, _CreatedAt}<- all_users(username)];
 
 auth_username_cli(["add", Username, Password]) ->
     case add_user({username, iolist_to_binary(Username)}, iolist_to_binary(Password)) of

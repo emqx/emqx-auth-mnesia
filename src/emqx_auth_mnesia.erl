@@ -55,15 +55,15 @@ check(ClientInfo = #{ clientid := Clientid
                     , password := NPassword
                     }, AuthResult, #{hash_type := HashType}) ->
     Username = maps:get(username, ClientInfo, undefined),
-    MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, X }, Password}) when X =:= Clientid-> Password;
-                              ({?TABLE, {username, X }, Password}) when X =:= Username andalso X =/= undefined -> Password
+    MatchSpec = ets:fun2ms(fun({?TABLE, {clientid, X }, Password, InterTime}) when X =:= Clientid-> Password;
+                              ({?TABLE, {username, X }, Password, InterTime}) when X =:= Username andalso X =/= undefined -> Password
                            end),
     case ets:select(?TABLE, MatchSpec) of
         [] -> 
             emqx_metrics:inc(?AUTH_METRICS(ignore)),
             ok;
         List ->
-            case [ Hash  || <<Salt:4/binary, Hash/binary>> <- List,
+            case [ Hash  || <<Salt:4/binary, Hash/binary>> <- lists:sort(fun emqx_auth_mnesia_cli:comparing/2, List),
                             Hash =:= hash(NPassword, Salt, HashType)
                  ] of
                 [] ->
