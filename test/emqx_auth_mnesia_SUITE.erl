@@ -2,10 +2,7 @@
 %% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
-%% you may not use this file except in compliance with the License.
-%% You may obtain a copy of the License at
-%%
-%%     http://www.apache.org/licenses/LICENSE-2.0
+%% you may not use this file except in compliance with the License.  %% You may obtain a copy of the License at %% %%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,6 +30,7 @@
 -define(API_VERSION, "v4").
 -define(BASE_PATH, "api").
 
+-define(TABLE, emqx_user).
 -define(CLIENTID,  <<"clientid_for_ct">>).
 -define(USERNAME,  <<"username_for_ct">>).
 -define(PASSWORD,  <<"password">>).
@@ -91,11 +89,11 @@ t_management(_Config) ->
 
     ok = emqx_auth_mnesia_cli:add_user({username,?USERNAME}, ?PASSWORD),
     {error, existed} = emqx_auth_mnesia_cli:add_user({username,?USERNAME}, ?PASSWORD),
-    ?assertEqual([?USERNAME], emqx_auth_mnesia_cli:all_users(username)),
+    ?assertMatch([{?TABLE, {username, ?USERNAME}, _Password, _InterTime}], emqx_auth_mnesia_cli:all_users(username)),
 
     ok = emqx_auth_mnesia_cli:add_user({clientid,?CLIENTID}, ?PASSWORD),
     {error, existed} = emqx_auth_mnesia_cli:add_user({clientid,?CLIENTID}, ?PASSWORD),
-    ?assertEqual([?CLIENTID], emqx_auth_mnesia_cli:all_users(clientid)),
+    ?assertMatch([{?TABLE, {clientid, ?CLIENTID}, _Password, _InterTime}], emqx_auth_mnesia_cli:all_users(clientid)),
 
     ?assertEqual(2,length(emqx_auth_mnesia_cli:all_users())),
 
@@ -105,10 +103,9 @@ t_management(_Config) ->
     ok = emqx_auth_mnesia_cli:update_user({clientid,?CLIENTID}, ?NPASSWORD),
     {error,noexisted} = emqx_auth_mnesia_cli:update_user({clientid, <<"no_existed_user">>}, ?PASSWORD),
 
-    [{emqx_user, {username,?USERNAME}, _}] =
-        emqx_auth_mnesia_cli:lookup_user({username,?USERNAME}),
-    [{emqx_user, {clientid,?CLIENTID}, _}] =
-        emqx_auth_mnesia_cli:lookup_user({clientid,?CLIENTID}),
+    
+    ?assertMatch([{?TABLE, {username, ?USERNAME}, _Password, _InterTime}], emqx_auth_mnesia_cli:lookup_user({username, ?USERNAME})),
+    ?assertMatch([{?TABLE, {clientid, ?CLIENTID}, _Password, _InterTime}], emqx_auth_mnesia_cli:lookup_user({clientid, ?CLIENTID})),
 
     User1 = #{username => ?USERNAME,
               clientid => undefined,
@@ -145,11 +142,11 @@ t_auth_clientid_cli(_) ->
     HashType = application:get_env(emqx_auth_mnesia, password_hash, sha256),
 
     emqx_auth_mnesia_cli:auth_clientid_cli(["add", ?CLIENTID, ?PASSWORD]),
-    [{_, {clientid, ?CLIENTID}, <<Salt:4/binary, Hash/binary>>}] = emqx_auth_mnesia_cli:lookup_user({clientid, ?CLIENTID}),
+    [{_, {clientid, ?CLIENTID}, <<Salt:4/binary, Hash/binary>>, _}] = emqx_auth_mnesia_cli:lookup_user({clientid, ?CLIENTID}),
     ?assertEqual(Hash, emqx_passwd:hash(HashType, <<Salt/binary, ?PASSWORD/binary>>)),
 
     emqx_auth_mnesia_cli:auth_clientid_cli(["update", ?CLIENTID, ?NPASSWORD]),
-    [{_, {clientid, ?CLIENTID}, <<Salt1:4/binary, Hash1/binary>>}] = emqx_auth_mnesia_cli:lookup_user({clientid, ?CLIENTID}),
+    [{_, {clientid, ?CLIENTID}, <<Salt1:4/binary, Hash1/binary>>, _}] = emqx_auth_mnesia_cli:lookup_user({clientid, ?CLIENTID}),
     ?assertEqual(Hash1, emqx_passwd:hash(HashType, <<Salt1/binary, ?NPASSWORD/binary>>)),
 
     emqx_auth_mnesia_cli:auth_clientid_cli(["del", ?CLIENTID]),
@@ -167,11 +164,11 @@ t_auth_username_cli(_) ->
     HashType = application:get_env(emqx_auth_mnesia, password_hash, sha256),
 
     emqx_auth_mnesia_cli:auth_username_cli(["add", ?USERNAME, ?PASSWORD]),
-    [{_, {username, ?USERNAME}, <<Salt:4/binary, Hash/binary>>}] = emqx_auth_mnesia_cli:lookup_user({username, ?USERNAME}),
+    [{_, {username, ?USERNAME}, <<Salt:4/binary, Hash/binary>>, _}] = emqx_auth_mnesia_cli:lookup_user({username, ?USERNAME}),
     ?assertEqual(Hash, emqx_passwd:hash(HashType, <<Salt/binary, ?PASSWORD/binary>>)),
 
     emqx_auth_mnesia_cli:auth_username_cli(["update", ?USERNAME, ?NPASSWORD]),
-    [{_, {username, ?USERNAME}, <<Salt1:4/binary, Hash1/binary>>}] = emqx_auth_mnesia_cli:lookup_user({username, ?USERNAME}),
+    [{_, {username, ?USERNAME}, <<Salt1:4/binary, Hash1/binary>>, _}] = emqx_auth_mnesia_cli:lookup_user({username, ?USERNAME}),
     ?assertEqual(Hash1, emqx_passwd:hash(HashType, <<Salt1/binary, ?NPASSWORD/binary>>)),
 
     emqx_auth_mnesia_cli:auth_username_cli(["del", ?USERNAME]),

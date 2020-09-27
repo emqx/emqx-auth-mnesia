@@ -30,6 +30,7 @@
         ]).
 
 -export([cli/1]).
+-export([comparing/2]).
 %%--------------------------------------------------------------------
 %% Acl API
 %%--------------------------------------------------------------------
@@ -40,7 +41,8 @@ add_acl(Login, Topic, Action, Access) ->
     Acls = #?TABLE{
               filter = {Login, Topic},
               action = Action,
-              access = Access
+              access = Access,
+              created_at = erlang:system_time(millisecond)
              },
     ret(mnesia:transaction(fun mnesia:write/1, [Acls])).
 
@@ -48,9 +50,9 @@ add_acl(Login, Topic, Action, Access) ->
 -spec(lookup_acl(login() | all) -> list()).
 lookup_acl(undefined) -> [];
 lookup_acl(Login) ->
-    MatchSpec = ets:fun2ms(fun({?TABLE, {Filter, ACLTopic}, Action, Access }) 
-                                 when Filter =:= Login -> {Filter, ACLTopic, Action,Access} end),
-    ets:select(?TABLE, MatchSpec).
+    MatchSpec = ets:fun2ms(fun({?TABLE, {Filter, ACLTopic}, Action, Access, CreatedAt})
+                                 when Filter =:= Login -> {Filter, ACLTopic, Action, Access, CreatedAt} end),
+    lists:sort(fun comparing/2, ets:select(?TABLE, MatchSpec)).
 
 %% @doc Remove acl
 -spec(remove_acl(login() | all, emqx_topic:topic()) -> ok | {error, any()}).
@@ -65,16 +67,37 @@ all_acls() ->
     all_acls(all).
 
 all_acls(clientid) -> 
-    MatchSpec = ets:fun2ms(fun({?TABLE, {{clientid, Clientid}, Topic}, Action, Access }) -> {{clientid, Clientid}, Topic, Action,Access} end),
-    ets:select(?TABLE, MatchSpec);
+    MatchSpec = ets:fun2ms(fun({?TABLE, {{clientid, Clientid}, Topic}, Action, Access, CreatedAt}) -> {{clientid, Clientid}, Topic, Action, Access, CreatedAt} end),
+    lists:sort(fun comparing/2, ets:select(?TABLE, MatchSpec));
 all_acls(username) -> 
-    MatchSpec = ets:fun2ms(fun({?TABLE, {{username, Username}, Topic}, Action, Access }) -> {{username, Username}, Topic, Action,Access} end),
-    ets:select(?TABLE, MatchSpec);
+    MatchSpec = ets:fun2ms(fun({?TABLE, {{username, Username}, Topic}, Action, Access, CreatedAt}) -> {{username, Username}, Topic, Action, Access, CreatedAt} end),
+    lists:sort(fun comparing/2, ets:select(?TABLE, MatchSpec));
 all_acls(all) -> 
-    MatchSpec = ets:fun2ms(fun({?TABLE, {all, Topic}, Action, Access }) -> {all, Topic, Action,Access} end),
-    ets:select(?TABLE, MatchSpec).
+    MatchSpec = ets:fun2ms(fun({?TABLE, {all, Topic}, Action, Access, CreatedAt}) -> {all, Topic, Action, Access, CreatedAt} end),
+    lists:sort(fun comparing/2, ets:select(?TABLE, MatchSpec)).
 
-%% Acl
+%%--------------------------------------------------------------------
+%% Internal functions
+%%--------------------------------------------------------------------
+
+comparing({_, _, _, _, CreatedAt1},
+          {_, _, _, _, CreatedAt2}) ->
+    CreatedAt1 >= CreatedAt2.
+
+ret({atomic, ok})     -> ok;
+ret({aborted, Error}) -> {error, Error}.
+
+validate(action, "pub") -> true;
+validate(action, "sub") -> true;
+validate(action, "pubsub") -> true;
+validate(access, "allow") -> true;
+validate(access, "deny") -> true;
+validate(_, _) -> false.
+
+%%--------------------------------------------------------------------
+%% ACL Cli
+%%--------------------------------------------------------------------
+
 cli(["list"]) ->
     [ begin
         case Filter of
@@ -85,19 +108,19 @@ cli(["list"]) ->
             all ->
                 emqx_ctl:print("Acl($all topic = ~p action = ~p access = ~p)~n",[Topic, Action, Access])
         end
-      end || {Filter, Topic, Action, Access } <- all_acls()];
+      end || {Filter, Topic, Action, Access, _} <- all_acls()];
 
 cli(["list", "clientid"]) ->
     [emqx_ctl:print("Acl(clientid = ~p topic = ~p action = ~p access = ~p)~n",[Clientid, Topic, Action, Access])
-     || {{clientid, Clientid}, Topic, Action, Access} <- all_acls(clientid) ];
+     || {{clientid, Clientid}, Topic, Action, Access, _} <- all_acls(clientid) ];
 
 cli(["list", "username"]) ->
     [emqx_ctl:print("Acl(username = ~p topic = ~p action = ~p access = ~p)~n",[Username, Topic, Action, Access])
-     || {{username, Username}, Topic, Action, Access} <- all_acls(username) ];
+     || {{username, Username}, Topic, Action, Access, _} <- all_acls(username) ];
 
 cli(["list", "_all"]) ->
     [emqx_ctl:print("Acl($all topic = ~p action = ~p access = ~p)~n",[Topic, Action, Access])
-     || {all, Topic, Action, Access} <- all_acls(all) ];
+     || {all, Topic, Action, Access, _} <- all_acls(all) ];
 
 cli(["add", "clientid", Clientid, Topic, Action, Access]) ->
     case validate(action, Action) andalso validate(access, Access) of
@@ -134,11 +157,11 @@ cli(["add", "_all", Topic, Action, Access]) ->
 
 cli(["show", "clientid", Clientid]) ->
     [emqx_ctl:print("Acl(clientid = ~p topic = ~p action = ~p access = ~p)~n",[NClientid, Topic, Action, Access])
-     || {{clientid, NClientid}, Topic, Action, Access} <- lookup_acl({clientid, iolist_to_binary(Clientid)}) ];
+     || {{clientid, NClientid}, Topic, Action, Access, _} <- lookup_acl({clientid, iolist_to_binary(Clientid)}) ];
 
 cli(["show", "username", Username]) ->
     [emqx_ctl:print("Acl(username = ~p topic = ~p action = ~p access = ~p)~n",[NUsername, Topic, Action, Access])
-     || {{username, NUsername}, Topic, Action, Access} <- lookup_acl({username, iolist_to_binary(Username)}) ];
+     || {{username, NUsername}, Topic, Action, Access, _} <- lookup_acl({username, iolist_to_binary(Username)}) ];
 
 cli(["del", "clientid", Clientid, Topic])->
     case remove_acl({clientid, iolist_to_binary(Clientid)}, iolist_to_binary(Topic)) of
@@ -172,16 +195,4 @@ cli(_) ->
                    , {"acl del _all, <Topic>", "Delete $all acl"}
                    ]).
 
-%%--------------------------------------------------------------------
-%% Internal functions
-%%--------------------------------------------------------------------
 
-ret({atomic, ok})     -> ok;
-ret({aborted, Error}) -> {error, Error}.
-
-validate(action, "pub") -> true;
-validate(action, "sub") -> true;
-validate(action, "pubsub") -> true;
-validate(access, "allow") -> true;
-validate(access, "deny") -> true;
-validate(_, _) -> false.

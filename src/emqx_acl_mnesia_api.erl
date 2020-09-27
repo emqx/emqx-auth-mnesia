@@ -1,4 +1,4 @@
-%%--------------------------------------------------------------------
+%c%--------------------------------------------------------------------
 %% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -100,19 +100,19 @@
 
 list_clientid(_Bindings, Params) ->
     MatchSpec = ets:fun2ms(
-                  fun({emqx_acl, {{clientid, Clientid}, Topic}, Action, Access }) -> {{clientid,Clientid}, Topic, Action,Access} end),
-    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun format/1)}).
+                  fun({emqx_acl, {{clientid, Clientid}, Topic}, Action, Access, CreatedAt}) -> {{clientid,Clientid}, Topic, Action,Access, CreatedAt} end),
+    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun emqx_acl_mnesia_cli:comparing/2, fun format/1)}).
 
 list_username(_Bindings, Params) ->
     MatchSpec = ets:fun2ms(
-                  fun({emqx_acl, {{username, Username}, Topic}, Action, Access }) -> {{username, Username}, Topic, Action,Access} end),
-    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun format/1)}).
+                  fun({emqx_acl, {{username, Username}, Topic}, Action, Access, CreatedAt}) -> {{username, Username}, Topic, Action,Access, CreatedAt} end),
+    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun emqx_acl_mnesia_cli:comparing/2, fun format/1)}).
 
 list_all(_Bindings, Params) ->
     MatchSpec = ets:fun2ms(
-                  fun({emqx_acl, {all, Topic}, Action, Access }) -> {all, Topic, Action,Access}end
+                  fun({emqx_acl, {all, Topic}, Action, Access, CreatedAt}) -> {all, Topic, Action,Access, CreatedAt}end
                  ),
-    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun format/1)}).
+    return({ok, emqx_auth_mnesia_api:paginate(emqx_acl, MatchSpec, Params, fun emqx_acl_mnesia_cli:comparing/2, fun format/1)}).
 
 
 lookup(#{clientid := Clientid}, _Params) ->
@@ -166,11 +166,11 @@ delete(#{topic := Topic}, _) ->
 %%------------------------------------------------------------------------------
 %% Interval Funcs
 %%------------------------------------------------------------------------------
-format({{clientid, Clientid}, Topic, Action, Access}) ->
+format({{clientid, Clientid}, Topic, Action, Access, _CreatedAt}) ->
     #{clientid => Clientid, topic => Topic, action => Action, access => Access};
-format({{username, Username}, Topic, Action, Access}) ->
+format({{username, Username}, Topic, Action, Access, _CreatedAt}) ->
     #{username => Username, topic => Topic, action => Action, access => Access};
-format({all, Topic, Action, Access}) ->
+format({all, Topic, Action, Access, _CreatedAt}) ->
     #{all => '$all', topic => Topic, action => Action, access => Access};
 format(List) when is_list(List) ->
     format(List, []).
