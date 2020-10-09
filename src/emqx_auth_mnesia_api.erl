@@ -124,22 +124,31 @@ add_clientid(_Bindings, Params) ->
     [ P | _] = Params,
     case is_list(P) of
         true -> return(do_add_clientid(Params, []));
-        false -> return(do_add_clientid([Params], []))
+        false ->
+            Re = do_add_clientid(Params),
+            case Re of
+                ok -> return(ok);
+                <<"ok">> -> return(ok);
+                _ -> return({error, format_msg(Re)})
+            end
     end.
 
 do_add_clientid([ Params | ParamsN ], ReList ) ->
     Clientid = urldecode(get_value(<<"clientid">>, Params)),
+    do_add_clientid(ParamsN, [{Clientid, format_msg(do_add_clientid(Params))} | ReList]);
+
+do_add_clientid([], ReList) ->
+    {ok, ReList}.
+
+do_add_clientid(Params) ->
+    Clientid = urldecode(get_value(<<"clientid">>, Params)),
     Password = urldecode(get_value(<<"password">>, Params)),
     Login = {clientid, Clientid},
-    Re = case validate([login, password], [Login, Password]) of
+    case validate([login, password], [Login, Password]) of
         ok -> 
             emqx_auth_mnesia_cli:add_user(Login, Password);
         Err -> Err
-    end,
-    do_add_clientid(ParamsN, [{Clientid, format_msg(Re)} | ReList]);
-    
-do_add_clientid([], ReList) ->
-    {ok, ReList}.
+    end.
 
 update_clientid(#{clientid := Clientid}, Params) ->
     Password = get_value(<<"password">>, Params),
@@ -166,22 +175,30 @@ add_username(_Bindings, Params) ->
     [ P | _] = Params,
     case is_list(P) of
         true -> return(do_add_username(Params, []));
-        false -> return(do_add_username([Params], []))
+        false ->
+            case do_add_username(Params) of
+                ok -> return(ok);
+                <<"ok">> -> return(ok);
+                Error -> return({error, format_msg(Error)})
+            end
     end.
 
 do_add_username([ Params | ParamsN ], ReList ) ->
     Username = urldecode(get_value(<<"username">>, Params)),
-    Password = urldecode(get_value(<<"password">>, Params)),
-    Login = {username, Username},
-    Re = case validate([login, password], [Login, Password]) of
-        ok ->
-            emqx_auth_mnesia_cli:add_user(Login, Password);
-        Err -> Err
-    end,
-    do_add_username(ParamsN, [{Username, format_msg(Re)} | ReList]);
+    do_add_username(ParamsN, [{Username, format_msg(do_add_username(Params))} | ReList]);
 
 do_add_username([], ReList) ->
     {ok, ReList}.
+
+do_add_username(Params) ->
+    Username = urldecode(get_value(<<"username">>, Params)),
+    Password = urldecode(get_value(<<"password">>, Params)),
+    Login = {username, Username},
+    case validate([login, password], [Login, Password]) of
+        ok ->
+            emqx_auth_mnesia_cli:add_user(Login, Password);
+        Err -> Err
+    end.
 
 update_username(#{username := Username}, Params) ->
     Password = get_value(<<"password">>, Params),
@@ -273,7 +290,11 @@ validate([K|Keys], [V|Values]) ->
        true  -> validate(Keys, Values)
    end.
 
-do_validation(login, V) when is_tuple(V) > 0 ->
+do_validation(login, {clientid, V}) when is_binary(V)
+                     andalso byte_size(V) > 0 ->
+    true;
+do_validation(login, {username, V}) when is_binary(V)
+                     andalso byte_size(V) > 0 ->
     true;
 do_validation(password, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
