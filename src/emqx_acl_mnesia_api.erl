@@ -124,10 +124,22 @@ add(_Bindings, Params) ->
     [ P | _] = Params,
     case is_list(P) of
         true -> return(do_add(Params, []));
-        false -> return(do_add([Params], []))
+        false ->
+            Re = do_add(Params),
+            case Re of
+                #{result := ok} -> return({ok, Re});
+                #{result := <<"ok">>} -> return({ok, Re});
+                _ -> return({error, Re})
+            end
     end.
 
 do_add([ Params | ParamsN ], ReList) ->
+    do_add(ParamsN, [do_add(Params) | ReList]);
+
+do_add([], ReList) ->
+    {ok, ReList}.
+
+do_add(Params) ->
     Clientid = get_value(<<"clientid">>, Params, undefined),
     Username = get_value(<<"username">>, Params, undefined),
     Login = case {Clientid, Username} of
@@ -143,19 +155,15 @@ do_add([ Params | ParamsN ], ReList) ->
             emqx_acl_mnesia_cli:add_acl(Login, Topic, erlang:binary_to_atom(Action, utf8), erlang:binary_to_atom(Access, utf8));
         Err -> Err
     end,
-    NRe = case Login of
-                  all -> [{all, '$all'} ];
-                  _ -> [ Login ]
-          end ++ [ {topic, Topic}
-                 , {action, Action}
-                 , {access, Access}
-                 , {result, format_msg(Re)}
-                 ],
-    do_add(ParamsN, [NRe | ReList]);
+    maps:merge(#{topic => Topic,
+                 action => Action,
+                 access => Access,
+                 result => format_msg(Re)
+                }, case Login of
+                     all -> #{all => '$all'};
+                     _ -> maps:from_list([Login])
+                   end).
     
-do_add([], ReList) ->
-    {ok, ReList}.
-
 delete(#{clientid := Clientid, topic := Topic}, _) ->
     return(emqx_acl_mnesia_cli:remove_acl({clientid, urldecode(Clientid)}, urldecode(Topic)));
 delete(#{username := Username, topic := Topic}, _) ->
@@ -186,9 +194,13 @@ validate([K|Keys], [V|Values]) ->
        false -> {error, K};
        true  -> validate(Keys, Values)
    end.
-do_validation(login, V) when V =:= all ->
+do_validation(login, all) ->
     true;
-do_validation(login, V) when is_tuple(V) ->
+do_validation(login, {clientid, V}) when is_binary(V)
+                     andalso byte_size(V) > 0->
+    true;
+do_validation(login, {username, V}) when is_binary(V)
+                     andalso byte_size(V) > 0->
     true;
 do_validation(clientid, V) when is_binary(V)
                      andalso byte_size(V) > 0 ->
