@@ -53,7 +53,7 @@ check_acl(ClientInfo = #{ clientid := Clientid }, PubSub, Topic, _NoMatchAction,
                    emqx_acl_mnesia_cli:lookup_acl(all)
            end,
 
-    case match(PubSub, Topic, Acls) of
+    case match(ClientInfo, PubSub, Topic, Acls) of
         allow ->
             emqx_metrics:inc(?ACL_METRICS(allow)),
             {stop, allow};
@@ -71,18 +71,33 @@ description() -> "Acl with Mnesia".
 %% Internal functions
 %%-------------------------------------------------------------------
 
-match(_PubSub, _Topic, []) ->
+match(_ClientInfo,  _PubSub, _Topic, []) ->
     nomatch;
-match(PubSub, Topic, [ {_, ACLTopic, Action, Access, _} | Acls]) ->
-    case match_actions(PubSub, Action) andalso match_topic(Topic, ACLTopic) of
+match(ClientInfo, PubSub, Topic, [ {_, ACLTopic, Action, Access, _} | Acls]) ->
+    case match_actions(PubSub, Action) andalso match_topic(ClientInfo, Topic, ACLTopic) of
         true -> Access;
-        false -> match(PubSub, Topic, Acls)
+        false -> match(ClientInfo, PubSub, Topic, Acls)
     end.
 
-match_topic(Topic, ACLTopic) when is_binary(Topic) ->
-    emqx_topic:match(Topic, ACLTopic).
+match_topic(ClientInfo, Topic, ACLTopic) when is_binary(Topic) ->
+    emqx_topic:match(Topic, feed_var(ClientInfo, ACLTopic)).
 
 match_actions(_, pubsub) -> true;
 match_actions(subscribe, sub) -> true;
 match_actions(publish, pub) -> true;
 match_actions(_, _) -> false.
+
+feed_var(ClientInfo, Pattern) ->
+    feed_var(ClientInfo, emqx_topic:words(Pattern), []).
+feed_var(_ClientInfo, [], Acc) ->
+    emqx_topic:join(lists:reverse(Acc));
+feed_var(ClientInfo = #{clientid := undefined}, [<<"%c">>|Words], Acc) ->
+    feed_var(ClientInfo, Words, [<<"%c">>|Acc]);
+feed_var(ClientInfo = #{clientid := ClientId}, [<<"%c">>|Words], Acc) ->
+    feed_var(ClientInfo, Words, [ClientId |Acc]);
+feed_var(ClientInfo = #{username := undefined}, [<<"%u">>|Words], Acc) ->
+    feed_var(ClientInfo, Words, [<<"%u">>|Acc]);
+feed_var(ClientInfo = #{username := Username}, [<<"%u">>|Words], Acc) ->
+    feed_var(ClientInfo, Words, [Username|Acc]);
+feed_var(ClientInfo, [W|Words], Acc) ->
+    feed_var(ClientInfo, Words, [W|Acc]).
