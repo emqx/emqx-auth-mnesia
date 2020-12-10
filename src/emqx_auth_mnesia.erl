@@ -64,7 +64,7 @@ check(ClientInfo = #{ clientid := Clientid
             ok;
         List ->
             case match_password(NPassword, HashType, List)  of
-                [] ->
+                false ->
                     ?LOG(error, "[Mnesia] Auth from mnesia failed: ~p", [ClientInfo]),
                     emqx_metrics:inc(?AUTH_METRICS(failure)),
                     {stop, AuthResult#{anonymous => false, auth_result => password_error}};
