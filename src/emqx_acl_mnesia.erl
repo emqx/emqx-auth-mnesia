@@ -31,7 +31,7 @@ init() ->
             {disc_copies, [node()]},
             {attributes, record_info(fields, emqx_acl)},
             {storage_properties, [{ets, [{read_concurrency, true}]}]}]),
-    ok = ekka_mnesia:copy_table(emqx_user, disc_copies).
+    ok = ekka_mnesia:copy_table(emqx_acl, disc_copies).
 
 -spec(register_metrics() -> ok).
 register_metrics() ->

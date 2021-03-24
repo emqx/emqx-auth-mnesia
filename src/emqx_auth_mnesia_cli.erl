@@ -145,6 +145,9 @@ auth_cli(["update", Login, NewPassword, IsSuperuser]) ->
     end;
 
 auth_cli(["del", Login]) ->
+    auth_cli(["delete", Login]);
+
+auth_cli(["delete", Login]) ->
     case  remove_user(iolist_to_binary(Login)) of
         ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
@@ -173,6 +176,9 @@ acl_cli(["add", Login, Topic, Action, Allow]) ->
     end;
 
 acl_cli(["del", Login, Topic])->
+    acl_cli(["delete", Login, Topic]);
+
+acl_cli(["delete", Login, Topic])->
     case remove_acl(iolist_to_binary(Login), iolist_to_binary(Topic)) of
          ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
@@ -189,5 +195,5 @@ acl_cli(["list"]) ->
 acl_cli(_) ->
     emqx_ctl:usage([{"mqtt-acl add <Login> <Topic> <Action> <Allow>", "Add acl"},
                     {"mqtt-acl show <Login>", "Lookup acl detail"},
-                    {"mqtt-acl del <Login>", "Delete acl"},
+                    {"mqtt-acl delete <Login>", "Delete acl"},
                     {"mqtt-acl list","List all acls"}]).
