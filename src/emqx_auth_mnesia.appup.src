@@ -1,39 +1,16 @@
 %% -*-: erlang -*-
+
 {VSN,
- [ 
-  {"4.2.2", [
-    {load_module, emqx_auth_mnesia_app},
-    {load_module, emqx_auth_mnesia_cli},
-    {load_module, emqx_acl_mnesia_cli},
-    {apply, {emqx_ctl, unregister_command, [username]}}
-  ]},
-  {"4.2.1", [
-    {load_module, emqx_auth_mnesia_app},
-    {load_module, emqx_auth_mnesia_cli},
-    {load_module, emqx_acl_mnesia_cli},
-    {apply, {emqx_ctl, unregister_command, [username]}}
-  ]},
-  {"4.2.0", [
-    {restart_application, emqx_auth_mnesia}
-  ]},
-  {<<".*">>, []}
- ],
- [
-  {"4.2.2", [
-    {load_module, emqx_auth_mnesia_app},
-    {load_module, emqx_auth_mnesia_cli},
-    {load_module, emqx_acl_mnesia_cli},
-    {apply, {emqx_ctl, register_command, [username, {emqx_auth_mnesia_cli, auth_username_cli}, []]}}
-  ]},
-  {"4.2.1", [
-    {load_module, emqx_auth_mnesia_app},
-    {load_module, emqx_auth_mnesia_cli},
-    {load_module, emqx_acl_mnesia_cli},
-    {apply, {emqx_ctl, register_command, [username, {emqx_auth_mnesia_cli, auth_username_cli}, []]}}
-  ]},
-  {"4.2.0", [
-    {restart_application, emqx_auth_mnesia}
-  ]},
-  {<<".*">>, []}
- ]
+  [
+    {<<"4\\.2\\.[0-5]">>, [
+      {restart_application, emqx_auth_mnesia}
+    ]},
+    {<<".*">>, []}
+  ],
+  [
+    {<<"4\\.2\\.[0-5]">>, [
+      {restart_application, emqx_auth_mnesia}
+    ]},
+    {<<".*">>, []}
+  ]
 }.

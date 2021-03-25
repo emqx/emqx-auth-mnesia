@@ -50,18 +50,9 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     emqx_ct_helpers:stop_apps([emqx_management, emqx_auth_mnesia]).
 
-init_per_testcase(t_check_as_clientid, Config) ->
-    Params = #{
-            hash_type => application:get_env(emqx_auth_mnesia, hash_type, sha256),
-            key_as => clientid
-            },
-    emqx:hook('client.authenticate', fun emqx_auth_mnesia:check/3, [Params]),
-    Config;
-
 init_per_testcase(_, Config) ->
     Params = #{
-            hash_type => application:get_env(emqx_auth_mnesia, hash_type, sha256),
-            key_as => username
+            hash_type => application:get_env(emqx_auth_mnesia, password_hash, sha256)
             },
     emqx:hook('client.authenticate', fun emqx_auth_mnesia:check/3, [Params]),
     Config.
