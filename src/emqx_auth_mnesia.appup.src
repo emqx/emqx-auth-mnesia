@@ -2,17 +2,17 @@
 {VSN,
  [ 
   {"4.2.9", [
-    {load_module, emqx_acl_mnesia.erl},
-    {load_module, emqx_auth_mnesia_cli.erl},
-    {load_module, emqx_auth_mnesia_app.erl}
+    {load_module, emqx_acl_mnesia},
+    {load_module, emqx_auth_mnesia_cli},
+    {load_module, emqx_auth_mnesia_app}
   ]},
   {<<".*">>, []}
  ],
  [
   {"4.2.9", [
-    {load_module, emqx_acl_mnesia.erl},
-    {load_module, emqx_auth_mnesia_cli.erl},
-    {load_module, emqx_auth_mnesia_app.erl}
+    {load_module, emqx_acl_mnesia},
+    {load_module, emqx_auth_mnesia_cli},
+    {load_module, emqx_auth_mnesia_app}
   ]},
   {<<".*">>, []}
  ]
