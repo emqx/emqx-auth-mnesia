@@ -133,13 +133,13 @@ encrypted_data(Password) ->
 
 %% User
 auth_cli(["add", Login, Password, IsSuperuser]) ->
-    case add_user(iolist_to_binary(Login), iolist_to_binary(Password), IsSuperuser) of
+    case add_user(iolist_to_binary(Login), iolist_to_binary(Password), list_to_existing_atom(IsSuperuser)) of
         ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
 
 auth_cli(["update", Login, NewPassword, IsSuperuser]) ->
-    case update_user(iolist_to_binary(Login), iolist_to_binary(NewPassword), IsSuperuser) of
+    case update_user(iolist_to_binary(Login), iolist_to_binary(NewPassword), list_to_existing_atom(IsSuperuser)) of
         ok -> emqx_ctl:print("ok~n");
         {error, Reason} -> emqx_ctl:print("Error: ~p~n", [Reason])
     end;
