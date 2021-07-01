@@ -2,12 +2,18 @@
 
 {VSN,
   [
+    {<<"4\\.2\\.[6-7]">>, [
+      {load_module,emqx_auth_mnesia_api}
+    ]},
     {<<"4\\.2\\.[0-5]">>, [
       {restart_application, emqx_auth_mnesia}
     ]},
     {<<".*">>, []}
   ],
   [
+    {<<"4\\.2\\.[6-7]">>, [
+      {load_module,emqx_auth_mnesia_api}
+    ]},
     {<<"4\\.2\\.[0-5]">>, [
       {restart_application, emqx_auth_mnesia}
     ]},

@@ -142,7 +142,7 @@ do_add_clientid([], ReList) ->
 
 do_add_clientid(Params) ->
     Clientid = urldecode(get_value(<<"clientid">>, Params)),
-    Password = urldecode(get_value(<<"password">>, Params)),
+    Password = get_value(<<"password">>, Params),
     Login = {clientid, Clientid},
     case validate([login, password], [Login, Password]) of
         ok -> 
@@ -153,7 +153,7 @@ do_add_clientid(Params) ->
 update_clientid(#{clientid := Clientid}, Params) ->
     Password = get_value(<<"password">>, Params),
     case validate([password], [Password]) of
-        ok -> return(emqx_auth_mnesia_cli:update_user({clientid, urldecode(Clientid)}, urldecode(Password)));
+        ok -> return(emqx_auth_mnesia_cli:update_user({clientid, urldecode(Clientid)}, Password));
         Err -> return(Err)
     end.
 
@@ -192,7 +192,7 @@ do_add_username([], ReList) ->
 
 do_add_username(Params) ->
     Username = urldecode(get_value(<<"username">>, Params)),
-    Password = urldecode(get_value(<<"password">>, Params)),
+    Password = get_value(<<"password">>, Params),
     Login = {username, Username},
     case validate([login, password], [Login, Password]) of
         ok ->
@@ -203,7 +203,7 @@ do_add_username(Params) ->
 update_username(#{username := Username}, Params) ->
     Password = get_value(<<"password">>, Params),
     case validate([password], [Password]) of
-        ok -> return(emqx_auth_mnesia_cli:update_user({username, urldecode(Username)}, urldecode(Password)));
+        ok -> return(emqx_auth_mnesia_cli:update_user({username, urldecode(Username)}, Password));
         Err -> return(Err)
     end.
 
