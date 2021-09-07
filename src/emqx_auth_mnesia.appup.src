@@ -2,8 +2,12 @@
 
 {VSN,
   [
+    {"4.2.8", [
+      {load_module,emqx_acl_mnesia_api, brutal_purge,soft_purge,[]},
+      {load_module,emqx_auth_mnesia_api, brutal_purge,soft_purge,[]}
+    ]},
     {<<"4\\.2\\.[6-7]">>, [
-      {load_module,emqx_auth_mnesia_api}
+      {load_module,emqx_auth_mnesia_api, brutal_purge,soft_purge,[]}
     ]},
     {<<"4\\.2\\.[0-5]">>, [
       {restart_application, emqx_auth_mnesia}
@@ -12,7 +16,7 @@
   ],
   [
     {<<"4\\.2\\.[6-7]">>, [
-      {load_module,emqx_auth_mnesia_api}
+      {load_module,emqx_auth_mnesia_api, brutal_purge,soft_purge,[]}
     ]},
     {<<"4\\.2\\.[0-5]">>, [
       {restart_application, emqx_auth_mnesia}
