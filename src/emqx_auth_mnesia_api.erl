@@ -134,15 +134,15 @@ add_clientid(_Bindings, Params) ->
     end.
 
 do_add_clientid([ Params | ParamsN ], ReList ) ->
-    Clientid = urldecode(get_value(<<"clientid">>, Params)),
+    Clientid = get_value(<<"clientid">>, Params),
     do_add_clientid(ParamsN, [{Clientid, format_msg(do_add_clientid(Params))} | ReList]);
 
 do_add_clientid([], ReList) ->
     {ok, ReList}.
 
 do_add_clientid(Params) ->
-    Clientid = urldecode(get_value(<<"clientid">>, Params)),
-    Password = urldecode(get_value(<<"password">>, Params)),
+    Clientid = get_value(<<"clientid">>, Params),
+    Password = get_value(<<"password">>, Params),
     Login = {clientid, Clientid},
     case validate([login, password], [Login, Password]) of
         ok -> 
@@ -153,7 +153,7 @@ do_add_clientid(Params) ->
 update_clientid(#{clientid := Clientid}, Params) ->
     Password = get_value(<<"password">>, Params),
     case validate([password], [Password]) of
-        ok -> return(emqx_auth_mnesia_cli:update_user({clientid, urldecode(Clientid)}, urldecode(Password)));
+        ok -> return(emqx_auth_mnesia_cli:update_user({clientid, urldecode(Clientid)}, Password));
         Err -> return(Err)
     end.
 
@@ -184,15 +184,15 @@ add_username(_Bindings, Params) ->
     end.
 
 do_add_username([ Params | ParamsN ], ReList ) ->
-    Username = urldecode(get_value(<<"username">>, Params)),
+    Username = get_value(<<"username">>, Params),
     do_add_username(ParamsN, [{Username, format_msg(do_add_username(Params))} | ReList]);
 
 do_add_username([], ReList) ->
     {ok, ReList}.
 
 do_add_username(Params) ->
-    Username = urldecode(get_value(<<"username">>, Params)),
-    Password = urldecode(get_value(<<"password">>, Params)),
+    Username = get_value(<<"username">>, Params),
+    Password = get_value(<<"password">>, Params),
     Login = {username, Username},
     case validate([login, password], [Login, Password]) of
         ok ->
@@ -203,7 +203,7 @@ do_add_username(Params) ->
 update_username(#{username := Username}, Params) ->
     Password = get_value(<<"password">>, Params),
     case validate([password], [Password]) of
-        ok -> return(emqx_auth_mnesia_cli:update_user({username, urldecode(Username)}, urldecode(Password)));
+        ok -> return(emqx_auth_mnesia_cli:update_user({username, urldecode(Username)}, Password));
         Err -> return(Err)
     end.
 
